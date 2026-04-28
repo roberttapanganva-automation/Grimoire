@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background: #0f1117;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+::selection {
+  background: #f59e0b;
+  color: #0f1117;
+}
+
+@layer components {
+  .control-base {
+    @apply rounded-[4px] transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400;
+  }
+
+  .control-hover {
+    @apply hover:bg-[#21243A];
+  }
+
+  .card-base {
+    @apply rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27];
+  }
+
+  .modal-base {
+    @apply rounded-[8px] border border-[#2A2D3E] bg-[#1A1D27];
+  }
+}
