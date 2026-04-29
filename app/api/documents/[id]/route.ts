@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { logSupabaseError, safeApiError } from "@/lib/api-errors";
-import { type DbDocumentRow } from "@/lib/documents";
+import { brainSchemaMissingMessage, isMissingBrainSchemaError, type DbDocumentRow } from "@/lib/documents";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 interface DocumentRouteContext {
@@ -28,6 +28,11 @@ export async function DELETE(_request: Request, { params }: DocumentRouteContext
 
   if (selectError) {
     logSupabaseError("documents.DELETE.select", selectError);
+
+    if (isMissingBrainSchemaError(selectError)) {
+      return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 503 });
+    }
+
     return NextResponse.json(safeApiError("Could not load document", selectError.message), { status: 500 });
   }
 
@@ -43,10 +48,27 @@ export async function DELETE(_request: Request, { params }: DocumentRouteContext
     return NextResponse.json(safeApiError("Could not delete document file", storageError.message), { status: 500 });
   }
 
+  const { error: deleteChunksError } = await supabase.from("chunks").delete().eq("document_id", params.id);
+
+  if (deleteChunksError) {
+    logSupabaseError("documents.DELETE.chunks", deleteChunksError);
+
+    if (isMissingBrainSchemaError(deleteChunksError)) {
+      return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 503 });
+    }
+
+    return NextResponse.json(safeApiError("Could not delete document chunks", deleteChunksError.message), { status: 500 });
+  }
+
   const { error } = await supabase.from("documents").delete().eq("id", params.id).eq("user_id", user.id);
 
   if (error) {
     logSupabaseError("documents.DELETE", error);
+
+    if (isMissingBrainSchemaError(error)) {
+      return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 503 });
+    }
+
     return NextResponse.json(safeApiError("Could not delete document", error.message), { status: 500 });
   }
 
