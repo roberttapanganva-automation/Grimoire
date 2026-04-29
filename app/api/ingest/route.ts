@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logSupabaseError } from "@/lib/api-errors";
 import { chunkText } from "@/lib/chunker";
 import { brainSchemaMissingMessage, isDocumentFileType, isMissingBrainSchemaError, mapDbDocumentToDocument, type DbDocumentRow } from "@/lib/documents";
+import { extractDocumentText } from "@/lib/server/extractDocumentText";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -26,26 +27,6 @@ function getErrorMessage(error: unknown) {
   }
 }
 
-const pdfTemporarilyDisabledMessage = "PDF processing is temporarily disabled while TXT/MD chunking is being stabilized.";
-
-function normalizeExtractedText(text: string) {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-async function extractTextForIngest(fileType: DbDocumentRow["file_type"], fileData: Blob) {
-  if (fileType === "pdf") {
-    throw new Error(pdfTemporarilyDisabledMessage);
-  }
-
-  const text = normalizeExtractedText(await fileData.text());
-
-  if (!text) {
-    throw new Error("No readable text found in this document.");
-  }
-
-  return text;
-}
-
 export async function POST(request: Request) {
   let supabase: ReturnType<typeof getSupabaseServerClient> | null = null;
   let userId: string | null = null;
@@ -53,7 +34,7 @@ export async function POST(request: Request) {
 
   async function fail(message: string, details?: unknown, status = 500) {
     const safeMessage = safeErrorMessage(message);
-    console.error("[Brain ingest failed]", safeMessage, details);
+    console.error("[ingest] failed", safeMessage, details);
 
     if (!supabase || !documentId || !userId) {
       return NextResponse.json({ error: safeMessage }, { status });
@@ -129,7 +110,7 @@ export async function POST(request: Request) {
 
     if (documentError) {
       logSupabaseError("ingest.document.select", documentError);
-      console.error("[Ingest] document lookup failure", { documentId, message: documentError.message });
+      console.error("[ingest] document lookup failure", { documentId, message: documentError.message });
 
       if (isMissingBrainSchemaError(documentError)) {
         return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 500 });
@@ -152,12 +133,13 @@ export async function POST(request: Request) {
       return fail(`Unsupported document type: ${documentRow.file_type}`);
     }
 
-    console.error("[Ingest] document loaded", {
+    console.log("[ingest] document loaded", {
       documentId,
       fileType: documentRow.file_type,
       filePathExists: Boolean(documentRow.file_path),
       fileSize: documentRow.file_size ?? 0,
     });
+    console.log("[ingest] file type detected", { documentId, fileType: documentRow.file_type });
 
     const { error: processingError } = await supabase
       .from("documents")
@@ -175,38 +157,44 @@ export async function POST(request: Request) {
       return fail(`Could not set document status to processing: ${processingError.message}`, { code: processingError.code });
     }
 
-    if (documentRow.file_type === "pdf") {
-      return fail(pdfTemporarilyDisabledMessage);
+    const { error: deleteChunksError } = await supabase.from("chunks").delete().eq("document_id", documentId);
+
+    if (deleteChunksError) {
+      logSupabaseError("ingest.chunks.delete", deleteChunksError);
+      return fail(`Could not clear previous chunks: ${deleteChunksError.message}`, { code: deleteChunksError.code });
     }
 
     const { data: fileBlob, error: downloadError } = await supabase.storage.from("documents").download(documentRow.file_path);
 
     if (downloadError) {
       logSupabaseError("ingest.storage.download", downloadError);
-      console.error("[Ingest] storage download failure", { documentId, filePath: documentRow.file_path, message: downloadError.message });
+      console.error("[ingest] storage download failure", { documentId, filePath: documentRow.file_path, message: downloadError.message });
       return fail(`Storage download failed: ${downloadError.message}`, { filePathExists: Boolean(documentRow.file_path) });
     }
 
     if (!fileBlob) {
-      console.error("[Ingest] storage download returned no data", { documentId, filePath: documentRow.file_path });
+      console.error("[ingest] storage download returned no data", { documentId, filePath: documentRow.file_path });
       return fail("Storage download returned no file data.");
     }
 
-    console.error("[Ingest] storage download complete", { documentId, blobSize: fileBlob.size });
-    const text = await extractTextForIngest(documentRow.file_type, fileBlob);
-    console.error("[Ingest] extracted text length", { documentId, length: text.length });
+    console.log("[ingest] storage downloaded", { documentId, blobSize: fileBlob.size });
+    let text: string;
+    try {
+      text = await extractDocumentText({
+        data: fileBlob,
+        fileName: documentRow.file_name,
+        fileType: documentRow.file_type,
+      });
+    } catch (error) {
+      return fail(getErrorMessage(error));
+    }
+
+    console.log("[ingest] text extracted length", { documentId, length: text.length });
     const chunks = chunkText(text);
-    console.error("[Ingest] chunk count", { documentId, count: chunks.length });
+    console.log("[ingest] chunks created", { documentId, count: chunks.length });
 
     if (chunks.length === 0) {
       return fail("Text was extracted, but chunking returned zero chunks.", { textLength: text.length });
-    }
-
-    const { error: deleteChunksError } = await supabase.from("chunks").delete().eq("document_id", documentId);
-
-    if (deleteChunksError) {
-      logSupabaseError("ingest.chunks.delete", deleteChunksError);
-      return fail(`Could not clear previous chunks: ${deleteChunksError.message}`, { code: deleteChunksError.code });
     }
 
     const { data: insertedChunks, error: insertChunksError } = await supabase
@@ -223,12 +211,12 @@ export async function POST(request: Request) {
 
     if (insertChunksError) {
       logSupabaseError("ingest.chunks.insert", insertChunksError);
-      console.error("[Ingest] chunk insert failure", { documentId, count: chunks.length, message: insertChunksError.message });
+      console.error("[ingest] chunk insert failure", { documentId, count: chunks.length, message: insertChunksError.message });
       return fail(`Chunk insert failed: ${insertChunksError.message}`, { count: chunks.length, code: insertChunksError.code });
     }
 
     if (!insertedChunks || insertedChunks.length !== chunks.length) {
-      console.error("[Ingest] chunk insert verification failure", {
+      console.error("[ingest] chunk insert verification failure", {
         documentId,
         expected: chunks.length,
         inserted: insertedChunks?.length ?? 0,
@@ -236,6 +224,8 @@ export async function POST(request: Request) {
 
       return fail(`Chunk insert verification failed: expected ${chunks.length}, inserted ${insertedChunks?.length ?? 0}.`);
     }
+
+    console.log("[ingest] chunks inserted", { documentId, count: insertedChunks.length });
 
     const { data: updatedDocument, error: readyError } = await supabase
       .from("documents")

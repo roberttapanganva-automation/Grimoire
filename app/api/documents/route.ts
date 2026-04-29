@@ -13,6 +13,8 @@ import {
 } from "@/lib/documents";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
+export const runtime = "nodejs";
+
 function storageBucketError(message?: string | null) {
   const detail = message ? ` Supabase said: ${message}` : "";
   return `Could not access the Supabase Storage bucket named "documents". Create it in Supabase Storage and try again.${detail}`;

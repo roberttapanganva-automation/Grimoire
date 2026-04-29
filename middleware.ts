@@ -37,18 +37,20 @@ export async function middleware(request: NextRequest) {
   const isCategoryApi = pathname.startsWith("/api/categories");
   const isDocumentApi = pathname.startsWith("/api/documents");
   const isIngestApi = pathname.startsWith("/api/ingest");
+  const isChatApi = pathname.startsWith("/api/chat");
   const isTagApi = pathname.startsWith("/api/tags");
   const isImportApi = pathname.startsWith("/api/import");
   const isExportApi = pathname.startsWith("/api/export");
+  const isChat = pathname === "/chat" || pathname.startsWith("/chat/");
   const isBrain = pathname === "/brain" || pathname.startsWith("/brain/");
   const isLibrary = pathname === "/library" || pathname.startsWith("/library/");
   const isSettings = pathname === "/settings" || pathname.startsWith("/settings/");
 
-  if (!user && (isItemApi || isCategoryApi || isDocumentApi || isIngestApi || isTagApi || isImportApi || isExportApi)) {
+  if (!user && (isItemApi || isCategoryApi || isDocumentApi || isIngestApi || isChatApi || isTagApi || isImportApi || isExportApi)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!user && (isBrain || isLibrary || isSettings)) {
+  if (!user && (isBrain || isChat || isLibrary || isSettings)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);

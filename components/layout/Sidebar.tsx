@@ -60,6 +60,7 @@ export function Sidebar({
   const pathname = usePathname();
   const isLibraryActive = pathname === "/library" || pathname.startsWith("/library/");
   const isBrainActive = pathname === "/brain" || pathname.startsWith("/brain/");
+  const isChatActive = pathname === "/chat" || pathname.startsWith("/chat/");
   const isSettingsActive = pathname === "/settings" || pathname.startsWith("/settings/");
 
   return (
@@ -105,6 +106,7 @@ export function Sidebar({
               hasActiveFilters={hasActiveFilters}
               onClearFilters={onClearFilters}
               isBrainActive={isBrainActive}
+              isChatActive={isChatActive}
               isLibraryActive={isLibraryActive}
               isSettingsActive={isSettingsActive}
               onAfterSelect={() => setIsOpen(false)}
@@ -129,6 +131,7 @@ export function Sidebar({
             hasActiveFilters={hasActiveFilters}
             onClearFilters={onClearFilters}
             isBrainActive={isBrainActive}
+            isChatActive={isChatActive}
             isLibraryActive={isLibraryActive}
             isSettingsActive={isSettingsActive}
           />
@@ -165,11 +168,13 @@ function SidebarContent({
   hasActiveFilters,
   onClearFilters,
   isBrainActive,
+  isChatActive,
   isLibraryActive,
   isSettingsActive,
   onAfterSelect,
 }: SidebarProps & {
   isBrainActive: boolean;
+  isChatActive: boolean;
   isLibraryActive: boolean;
   isSettingsActive: boolean;
   onAfterSelect?: () => void;
@@ -213,14 +218,16 @@ function SidebarContent({
           <Network className="size-4" aria-hidden="true" />
           Brain
         </Link>
-        <button
-          type="button"
-          className="flex w-full cursor-not-allowed items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium text-[#374151]"
-          disabled
+        <Link
+          href="/chat"
+          onClick={() => onAfterSelect?.()}
+          className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+            isChatActive ? "bg-[#21243A] text-[#FBBF24]" : "text-[#64748B] hover:bg-[#21243A]"
+          }`}
         >
           <MessageSquare className="size-4" aria-hidden="true" />
           Chat
-        </button>
+        </Link>
         <Link
           href="/settings"
           onClick={() => onAfterSelect?.()}

@@ -3,6 +3,8 @@ import { logSupabaseError, safeApiError } from "@/lib/api-errors";
 import { brainSchemaMissingMessage, isMissingBrainSchemaError, type DbDocumentRow } from "@/lib/documents";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
+export const runtime = "nodejs";
+
 interface DocumentRouteContext {
   params: {
     id: string;

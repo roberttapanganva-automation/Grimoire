@@ -1,6 +1,7 @@
 import type { Document, DocumentFileType, DocumentStatus } from "@/types";
 
 export const allowedDocumentFileTypes: DocumentFileType[] = ["pdf", "txt", "md"];
+export const allowedDocumentFileExtensions = ["pdf", "txt", "md", "markdown"] as const;
 export const maxDocumentFileSize = 10 * 1024 * 1024;
 export const brainSchemaMissingMessage =
   "Brain database tables are missing. Run supabase/brain_schema.sql in Supabase SQL Editor, then refresh.";
@@ -35,6 +36,25 @@ export interface DbDocumentChunkRow {
 
 export function isDocumentFileType(value: unknown): value is DocumentFileType {
   return typeof value === "string" && allowedDocumentFileTypes.includes(value.toLowerCase() as DocumentFileType);
+}
+
+export function normalizeDocumentFileType(fileName?: string | null, mimeType?: string | null): DocumentFileType | null {
+  const extension = getFileExtension(fileName ?? "");
+  const type = mimeType?.trim().toLowerCase() ?? "";
+
+  if (extension === "pdf" || type === "application/pdf") {
+    return "pdf";
+  }
+
+  if (extension === "md" || extension === "markdown" || type === "text/markdown") {
+    return "md";
+  }
+
+  if (extension === "txt" || type === "text/plain") {
+    return "txt";
+  }
+
+  return null;
 }
 
 export function mapDbDocumentToDocument(row: DbDocumentRow): Document {
@@ -95,8 +115,9 @@ export function getSafeFileName(fileName: string) {
 
 export function validateDocumentFile(file: File): { fileType: DocumentFileType } | { error: string } {
   const extension = getFileExtension(file.name);
+  const fileType = normalizeDocumentFileType(file.name, file.type);
 
-  if (!isDocumentFileType(extension)) {
+  if (!fileType || (file.type === "application/octet-stream" && !allowedDocumentFileExtensions.includes(extension as (typeof allowedDocumentFileExtensions)[number]))) {
     return { error: "Unsupported file type. Upload a PDF, TXT, or MD file." };
   }
 
@@ -108,7 +129,7 @@ export function validateDocumentFile(file: File): { fileType: DocumentFileType }
     return { error: "File is empty." };
   }
 
-  return { fileType: extension };
+  return { fileType };
 }
 
 export function isMissingBrainSchemaError(error: { code?: string; message?: string; details?: string } | null | undefined) {

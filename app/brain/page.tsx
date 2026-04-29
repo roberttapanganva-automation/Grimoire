@@ -4,7 +4,7 @@ import { ChangeEvent, DragEvent, FormEvent, MouseEvent, useCallback, useEffect, 
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Eye, FileText, Loader2, Play, RotateCcw, Trash2, UploadCloud, X } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { allowedDocumentFileTypes, brainSchemaMissingMessage, maxDocumentFileSize } from "@/lib/documents";
+import { brainSchemaMissingMessage, validateDocumentFile } from "@/lib/documents";
 import type { Document as BrainDocument, DocumentChunk, DocumentStatus } from "@/types";
 
 type UploadState = "idle" | "selected" | "uploading" | "success" | "error";
@@ -35,26 +35,9 @@ function formatDate(value: string) {
   }).format(date);
 }
 
-function getFileExtension(fileName: string) {
-  return fileName.split(".").pop()?.trim().toLowerCase() ?? "";
-}
-
 function validateClientFile(file: File) {
-  const extension = getFileExtension(file.name);
-
-  if (!allowedDocumentFileTypes.includes(extension as (typeof allowedDocumentFileTypes)[number])) {
-    return "Unsupported file type. Upload a PDF, TXT, or MD file.";
-  }
-
-  if (file.size > maxDocumentFileSize) {
-    return "File is too large. Upload a file that is 10MB or smaller.";
-  }
-
-  if (file.size <= 0) {
-    return "File is empty.";
-  }
-
-  return null;
+  const validation = validateDocumentFile(file);
+  return "error" in validation ? validation.error : null;
 }
 
 function statusClassName(status: DocumentStatus) {
@@ -434,7 +417,7 @@ export default function BrainPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt,.md,application/pdf,text/plain,text/markdown"
+                  accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
                   onChange={handleFileInputChange}
                   className="sr-only"
                   disabled={isBrainSetupRequired}
@@ -661,8 +644,10 @@ function ChunkPreviewPanel({
                 </article>
               ))}
             </div>
-          ) : (
+          ) : document.status === "uploading" ? (
             <div className="rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-6 text-center text-sm text-[#64748B]">No chunks yet.</div>
+          ) : (
+            <div className="rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-6 text-center text-sm text-[#64748B]">No chunk rows were found. Reprocess this document.</div>
           )}
         </div>
 
