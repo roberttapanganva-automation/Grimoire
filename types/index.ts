@@ -15,3 +15,13 @@ export interface Item {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ItemFormValues {
+  type: ItemType;
+  title: string;
+  content: string;
+  url: string;
+  command: string;
+  tags: string[];
+  categoryId: string | null;
+}

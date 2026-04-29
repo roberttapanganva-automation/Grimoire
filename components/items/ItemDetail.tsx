@@ -4,12 +4,13 @@ import type { Item } from "@/types";
 import { CopyButton } from "@/components/items/CopyButton";
 import { TagChip } from "@/components/ui/TagChip";
 import { TypeBadge } from "@/components/ui/TypeBadge";
-import { Edit3, ExternalLink, X } from "lucide-react";
+import { Edit3, ExternalLink, Trash2, X } from "lucide-react";
 
 interface ItemDetailProps {
   item: Item | null;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }
 
 function getCopyContent(item: Item) {
@@ -20,7 +21,7 @@ function getDisplayContent(item: Item) {
   return item.command ?? item.content ?? item.url ?? "No content available.";
 }
 
-export function ItemDetail({ item, onClose, onEdit }: ItemDetailProps) {
+export function ItemDetail({ item, onClose, onEdit, onDelete }: ItemDetailProps) {
   if (!item) {
     return null;
   }
@@ -75,14 +76,24 @@ export function ItemDetail({ item, onClose, onEdit }: ItemDetailProps) {
 
         <footer className="grid gap-3 border-t border-[#2A2D3E] p-5">
           <CopyButton content={getCopyContent(item)} itemId={item.id} initialCount={item.copyCount} />
-          <button
-            type="button"
-            onClick={onEdit}
-            className="inline-flex items-center justify-center gap-2 rounded-[4px] border border-[#2A2D3E] px-3 py-2 text-sm font-semibold text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
-          >
-            <Edit3 className="size-4" aria-hidden="true" />
-            Edit item
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center justify-center gap-2 rounded-[4px] border border-[#2A2D3E] px-3 py-2 text-sm font-semibold text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <Edit3 className="size-4" aria-hidden="true" />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex items-center justify-center gap-2 rounded-[4px] border border-[#EF4444]/60 px-3 py-2 text-sm font-semibold text-[#FCA5A5] transition-colors duration-150 hover:bg-[#EF4444]/10 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+              Delete
+            </button>
+          </div>
         </footer>
       </div>
     </aside>

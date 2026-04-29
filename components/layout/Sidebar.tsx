@@ -12,6 +12,7 @@ interface TypeFilter {
 interface SidebarProps {
   activeType: ItemType | "all";
   onTypeChange: (type: ItemType | "all") => void;
+  onNewItem: () => void;
 }
 
 const typeFilters: TypeFilter[] = [
@@ -34,7 +35,7 @@ function TypeIcon({ type }: { type: TypeFilter["type"] }) {
   return <Brain className="size-4" aria-hidden="true" />;
 }
 
-export function Sidebar({ activeType, onTypeChange }: SidebarProps) {
+export function Sidebar({ activeType, onTypeChange, onNewItem }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -67,7 +68,7 @@ export function Sidebar({ activeType, onTypeChange }: SidebarProps) {
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
-            <SidebarContent activeType={activeType} onTypeChange={onTypeChange} onAfterSelect={() => setIsOpen(false)} />
+            <SidebarContent activeType={activeType} onTypeChange={onTypeChange} onNewItem={onNewItem} onAfterSelect={() => setIsOpen(false)} />
           </div>
         </div>
       ) : null}
@@ -75,7 +76,7 @@ export function Sidebar({ activeType, onTypeChange }: SidebarProps) {
       <aside className="fixed inset-y-0 left-0 hidden w-[240px] border-r border-[#2A2D3E] bg-[#1A1D27] md:block">
         <div className="flex h-full flex-col p-4">
           <Brand />
-          <SidebarContent activeType={activeType} onTypeChange={onTypeChange} />
+          <SidebarContent activeType={activeType} onTypeChange={onTypeChange} onNewItem={onNewItem} />
         </div>
       </aside>
     </>
@@ -99,6 +100,7 @@ function Brand() {
 function SidebarContent({
   activeType,
   onTypeChange,
+  onNewItem,
   onAfterSelect,
 }: SidebarProps & {
   onAfterSelect?: () => void;
@@ -107,6 +109,10 @@ function SidebarContent({
     <>
       <button
         type="button"
+        onClick={() => {
+          onNewItem();
+          onAfterSelect?.();
+        }}
         className="mt-6 inline-flex items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
       >
         <Plus className="size-4" aria-hidden="true" />
