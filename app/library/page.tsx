@@ -59,7 +59,7 @@ export default function LibraryPage() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<ItemType | "all">("all");
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export default function LibraryPage() {
           setStatusMessage("Could not load your library yet. Check the Supabase items table and try again.");
           setItems([]);
           setCategories([]);
-          setSelectedItem(null);
+          setSelectedItemId(null);
           setIsLoading(false);
         }
         return;
@@ -108,7 +108,6 @@ export default function LibraryPage() {
       if (isMounted) {
         setItems(itemsResult.items);
         setCategories(categoriesResult.categories);
-        setSelectedItem((current) => current ?? itemsResult.items[0] ?? null);
         setIsLoading(false);
       }
     }
@@ -132,6 +131,7 @@ export default function LibraryPage() {
 
       if (event.key === "Escape") {
         setIsPaletteOpen(false);
+        setSelectedItemId(null);
       }
     }
 
@@ -206,6 +206,14 @@ export default function LibraryPage() {
 
   const hasActiveFilters = searchQuery.trim().length > 0 || selectedType !== "all" || selectedCategoryId !== null || selectedTag !== null;
 
+  const selectedItem = useMemo(() => {
+    if (!selectedItemId) {
+      return null;
+    }
+
+    return items.find((item) => item.id === selectedItemId) ?? null;
+  }, [items, selectedItemId]);
+
   function clearFilters() {
     setSearchQuery("");
     setSelectedType("all");
@@ -215,12 +223,10 @@ export default function LibraryPage() {
 
   function updateItemInState(updatedItem: Item) {
     setItems((current) => current.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
-    setSelectedItem((current) => (current?.id === updatedItem.id ? updatedItem : current));
   }
 
   function updateCopyCount(itemId: string, copyCount: number) {
     setItems((current) => current.map((item) => (item.id === itemId ? { ...item, copyCount } : item)));
-    setSelectedItem((current) => (current?.id === itemId ? { ...current, copyCount } : current));
   }
 
   function openCreateForm() {
@@ -271,7 +277,6 @@ export default function LibraryPage() {
       updateItemInState(result.item);
     } else {
       setItems((current) => [result.item, ...current]);
-      setSelectedItem(result.item);
     }
 
     setIsFormOpen(false);
@@ -299,7 +304,7 @@ export default function LibraryPage() {
     }
 
     setItems((current) => current.filter((item) => item.id !== deletedId));
-    setSelectedItem((current) => (current?.id === deletedId ? null : current));
+    setSelectedItemId((current) => (current === deletedId ? null : current));
   }
 
   return (
@@ -333,7 +338,7 @@ export default function LibraryPage() {
             onClearFilters={clearFilters}
           />
 
-          <main className="p-4 md:p-6">
+          <main className="min-h-[calc(100vh-96px)] p-4 md:p-6" onClick={() => setSelectedItemId(null)}>
             {statusMessage ? (
               <div className="mb-4 rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] px-4 py-3 text-sm text-[#FBBF24]" role="status">
                 {statusMessage}
@@ -353,7 +358,7 @@ export default function LibraryPage() {
                       item={item}
                       isSelected={selectedItem?.id === item.id}
                       onCopy={() => undefined}
-                      onSelect={() => setSelectedItem(item)}
+                      onSelect={() => setSelectedItemId(item.id)}
                       onTagSelect={setSelectedTag}
                       onCopyCountChange={(copyCount) => updateCopyCount(item.id, copyCount)}
                     />
@@ -364,7 +369,7 @@ export default function LibraryPage() {
                       isSelected={selectedItem?.id === item.id}
                       isCompact={viewMode === "compact"}
                       onCopy={() => undefined}
-                      onSelect={() => setSelectedItem(item)}
+                      onSelect={() => setSelectedItemId(item.id)}
                       onTagSelect={setSelectedTag}
                       onCopyCountChange={(copyCount) => updateCopyCount(item.id, copyCount)}
                     />
@@ -383,7 +388,7 @@ export default function LibraryPage() {
       <div className="xl:fixed xl:inset-y-0 xl:right-0">
         <ItemDetail
           item={selectedItem}
-          onClose={() => setSelectedItem(null)}
+          onClose={() => setSelectedItemId(null)}
           onEdit={openEditForm}
           onDelete={deleteSelectedItem}
           onTagSelect={setSelectedTag}
@@ -414,7 +419,7 @@ export default function LibraryPage() {
         items={items}
         onClose={() => setIsPaletteOpen(false)}
         onNewItem={openCreateForm}
-        onSelectItem={setSelectedItem}
+        onSelectItem={(item) => setSelectedItemId(item.id)}
       />
     </div>
   );

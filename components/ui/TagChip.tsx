@@ -13,7 +13,14 @@ export function TagChip({ label, isActive = false, onClick }: TagChipProps) {
 
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={className}>
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onClick();
+        }}
+        className={className}
+      >
         <span className="truncate">{label}</span>
       </button>
     );
