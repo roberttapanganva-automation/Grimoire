@@ -29,12 +29,23 @@ export function ItemRow({ item, isSelected, isCompact = false, onCopy, onSelect,
 
   return (
     <article
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
       className={`rounded-[6px] border bg-[#1A1D27] transition-colors duration-150 hover:bg-[#21243A] ${
         isSelected ? "border-[#F59E0B]" : "border-[#2A2D3E]"
       }`}
     >
       <div className={`grid gap-4 p-4 ${isCompact ? "md:grid-cols-[1fr_auto]" : "md:grid-cols-[minmax(0,1fr)_auto]"}`}>
-        <button type="button" onClick={onSelect} className="min-w-0 text-left focus:outline-none focus:ring-1 focus:ring-amber-400">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSelect();
+          }}
+          className="min-w-0 text-left focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
           <div className="flex flex-wrap items-center gap-2">
             <TypeBadge type={item.type} />
             {item.isPinned ? <Pin className="size-4 text-amber-400" aria-label="Pinned item" /> : null}

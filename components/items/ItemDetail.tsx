@@ -31,8 +31,14 @@ export function ItemDetail({ item, onClose, onEdit, onDelete, onTagSelect, onCop
   const isMono = item.type === "prompt" || item.type === "command" || item.type === "snippet";
 
   return (
-    <aside className="fixed inset-0 z-40 flex bg-[#0F1117]/80 backdrop-blur-sm xl:static xl:z-auto xl:block xl:w-[380px] xl:shrink-0 xl:bg-transparent xl:backdrop-blur-0">
-      <div className="ml-auto flex h-full w-full flex-col border-l border-[#2A2D3E] bg-[#1A1D27] md:w-[420px] xl:w-full">
+    <aside
+      className="fixed inset-0 z-40 flex bg-[#0F1117]/80 backdrop-blur-sm xl:static xl:z-auto xl:block xl:w-[380px] xl:shrink-0 xl:bg-transparent xl:backdrop-blur-0"
+      onClick={onClose}
+    >
+      <div
+        className="ml-auto flex h-full w-full flex-col border-l border-[#2A2D3E] bg-[#1A1D27] md:w-[420px] xl:w-full"
+        onClick={(event) => event.stopPropagation()}
+      >
         <header className="border-b border-[#2A2D3E] p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <TypeBadge type={item.type} />

@@ -28,13 +28,20 @@ export function ItemCard({ item, isSelected, onCopy, onSelect, onTagSelect, onCo
 
   return (
     <article
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect();
+      }}
       className={`flex min-h-[236px] flex-col rounded-[6px] border bg-[#1A1D27] p-4 transition-colors duration-150 hover:bg-[#21243A] ${
         isSelected ? "border-[#F59E0B]" : "border-[#2A2D3E]"
       }`}
     >
       <button
         type="button"
-        onClick={onSelect}
+        onClick={(event) => {
+          event.stopPropagation();
+          onSelect();
+        }}
         className="flex flex-1 flex-col text-left focus:outline-none focus:ring-1 focus:ring-amber-400"
       >
         <div className="mb-5 flex items-start justify-between gap-3">
