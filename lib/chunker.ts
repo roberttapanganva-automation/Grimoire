@@ -24,6 +24,16 @@ export function chunkText(rawText: string, options: ChunkTextOptions = {}): Text
     return [];
   }
 
+  if (words.length <= chunkSize) {
+    return [
+      {
+        content: text,
+        chunkIndex: 0,
+        tokenCount: words.length,
+      },
+    ];
+  }
+
   const chunks: TextChunk[] = [];
   const step = chunkSize - overlap;
   let start = 0;

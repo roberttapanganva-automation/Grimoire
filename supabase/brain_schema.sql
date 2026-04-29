@@ -38,9 +38,45 @@ create index if not exists documents_user_id_idx on public.documents(user_id);
 create index if not exists documents_created_at_idx on public.documents(created_at desc);
 create index if not exists chunks_document_id_idx on public.chunks(document_id);
 create unique index if not exists chunks_document_id_chunk_index_idx on public.chunks(document_id, chunk_index);
+create index if not exists chunks_embedding_idx
+on public.chunks
+using ivfflat (embedding vector_cosine_ops)
+with (lists = 100)
+where embedding is not null;
 
 alter table public.documents
 add column if not exists error_message text;
+
+create or replace function public.match_chunks(
+  query_embedding vector(768),
+  match_threshold float default 0.35,
+  match_count int default 6
+)
+returns table (
+  chunk_id uuid,
+  document_id uuid,
+  content text,
+  similarity float
+)
+language sql
+stable
+as $$
+  select
+    c.id as chunk_id,
+    c.document_id,
+    c.content,
+    1 - (c.embedding <=> query_embedding) as similarity
+  from public.chunks c
+  join public.documents d on d.id = c.document_id
+  where d.user_id = auth.uid()
+    and d.status = 'ready'
+    and c.embedding is not null
+    and 1 - (c.embedding <=> query_embedding) >= match_threshold
+  order by c.embedding <=> query_embedding
+  limit match_count;
+$$;
+
+grant execute on function public.match_chunks(vector(768), float, int) to authenticated;
 
 insert into storage.buckets (id, name, public)
 values ('documents', 'documents', false)

@@ -13,6 +13,8 @@ import {
 } from "@/lib/documents";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
+export const runtime = "nodejs";
+
 function storageBucketError(message?: string | null) {
   const detail = message ? ` Supabase said: ${message}` : "";
   return `Could not access the Supabase Storage bucket named "documents". Create it in Supabase Storage and try again.${detail}`;
@@ -105,7 +107,7 @@ export async function POST(request: Request) {
       file_type: validation.fileType,
       file_size: file.size,
       source_url: null,
-      status: "ready",
+      status: "uploading",
       error_message: null,
       chunk_count: 0,
       category_id: null,

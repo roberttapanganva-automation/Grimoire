@@ -70,3 +70,40 @@ export interface DocumentChunk {
   tokenCount: number;
   createdAt: string;
 }
+
+export interface ChatSource {
+  chunk_id: string;
+  document_id: string;
+  document_title: string;
+  excerpt: string;
+  similarity: number;
+}
+
+export interface ChatMessage {
+  id?: string;
+  sessionId?: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: ChatSource[];
+  createdAt?: string;
+}
+
+export interface ChatApiResponse {
+  answer?: string;
+  sources?: ChatSource[];
+  sessionId?: string;
+  error?: string;
+  setupRequired?: boolean;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: string;
+  latestMessagePreview?: string | null;
+}
+
+export interface ChatSessionDetail {
+  session: ChatSession;
+  messages: ChatMessage[];
+}
