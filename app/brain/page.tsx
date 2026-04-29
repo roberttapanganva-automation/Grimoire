@@ -95,9 +95,11 @@ export default function BrainPage() {
     [documents, selectedDocumentId],
   );
 
-  const loadDocuments = useCallback(async () => {
+  const loadDocuments = useCallback(async (options: { preserveStatus?: boolean } = {}) => {
     setIsLoading(true);
-    setStatusMessage(null);
+    if (!options.preserveStatus) {
+      setStatusMessage(null);
+    }
     setIsBrainSetupRequired(false);
 
     const response = await fetch("/api/documents", { cache: "no-store" });
@@ -278,6 +280,7 @@ export default function BrainPage() {
 
     setProcessingId(document.id);
     setMessageTone("neutral");
+    setIsBrainSetupRequired(false);
     setStatusMessage(`${document.title} is processing...`);
     updateDocument({ ...document, status: "processing", errorMessage: null });
 
@@ -298,11 +301,12 @@ export default function BrainPage() {
 
     if (!response.ok) {
       const result = (await response.json().catch(() => null)) as { error?: string; detail?: string; setupRequired?: boolean } | null;
-      const errorMessage = result?.setupRequired ? brainSchemaMissingMessage : result?.detail ?? result?.error ?? "Could not process document.";
+      const errorMessage = result?.setupRequired ? brainSchemaMissingMessage : result?.error ?? result?.detail ?? "Could not process document.";
       setIsBrainSetupRequired(Boolean(result?.setupRequired));
       updateDocument({ ...document, status: "error", chunkCount: 0, errorMessage });
       setMessageTone("error");
       setStatusMessage(errorMessage);
+      await loadDocuments({ preserveStatus: true });
       return;
     }
 
@@ -310,6 +314,7 @@ export default function BrainPage() {
     updateDocument(result.document);
     setMessageTone("success");
     setStatusMessage(`Processed ${result.document.chunkCount} chunks.`);
+    await loadDocuments({ preserveStatus: true });
 
     if (selectedDocumentId === document.id) {
       await loadChunks(document.id);

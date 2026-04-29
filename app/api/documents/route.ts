@@ -105,7 +105,7 @@ export async function POST(request: Request) {
       file_type: validation.fileType,
       file_size: file.size,
       source_url: null,
-      status: "ready",
+      status: "uploading",
       error_message: null,
       chunk_count: 0,
       category_id: null,
