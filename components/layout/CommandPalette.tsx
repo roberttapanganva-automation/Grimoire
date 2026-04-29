@@ -2,7 +2,7 @@
 
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FilePlus2, Library, Search, Settings, X } from "lucide-react";
+import { FilePlus2, Library, Network, Search, Settings, X } from "lucide-react";
 import type { Item } from "@/types";
 import { TypeBadge } from "@/components/ui/TypeBadge";
 
@@ -73,6 +73,16 @@ export function CommandPalette({ isOpen, items, onClose, onNewItem, onSelectItem
         type: "action",
         run: () => {
           router.push("/settings");
+          onClose();
+        },
+      },
+      {
+        id: "go-brain",
+        label: "Go to Brain",
+        description: "/brain",
+        type: "action",
+        run: () => {
+          router.push("/brain");
           onClose();
         },
       },
@@ -196,6 +206,8 @@ export function CommandPalette({ isOpen, items, onClose, onNewItem, onSelectItem
                   {entry.type === "action" ? (
                     entry.id === "new-item" ? (
                       <FilePlus2 className="size-4" aria-hidden="true" />
+                    ) : entry.id === "go-brain" ? (
+                      <Network className="size-4" aria-hidden="true" />
                     ) : entry.id === "go-settings" ? (
                       <Settings className="size-4" aria-hidden="true" />
                     ) : (

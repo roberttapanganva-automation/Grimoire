@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Category, ItemType } from "@/types";
-import { BookOpen, Brain, Code2, FileText, Link2, LogOut, Menu, Plus, Settings, Terminal, X } from "lucide-react";
+import { BookOpen, Brain, Code2, FileText, Link2, LogOut, Menu, MessageSquare, Network, Plus, Settings, Terminal, X } from "lucide-react";
 
 interface TypeFilter {
   type: ItemType | "all";
@@ -12,17 +12,17 @@ interface TypeFilter {
 }
 
 interface SidebarProps {
-  activeType: ItemType | "all";
-  onTypeChange: (type: ItemType | "all") => void;
-  onNewItem: () => void;
-  categories: Array<Category & { count: number }>;
-  selectedCategoryId: string | null;
-  onCategoryChange: (categoryId: string | null) => void;
-  tags: Array<{ label: string; count: number }>;
-  selectedTag: string | null;
-  onTagChange: (tag: string | null) => void;
-  hasActiveFilters: boolean;
-  onClearFilters: () => void;
+  activeType?: ItemType | "all";
+  onTypeChange?: (type: ItemType | "all") => void;
+  onNewItem?: () => void;
+  categories?: Array<Category & { count: number }>;
+  selectedCategoryId?: string | null;
+  onCategoryChange?: (categoryId: string | null) => void;
+  tags?: Array<{ label: string; count: number }>;
+  selectedTag?: string | null;
+  onTagChange?: (tag: string | null) => void;
+  hasActiveFilters?: boolean;
+  onClearFilters?: () => void;
 }
 
 const typeFilters: TypeFilter[] = [
@@ -44,20 +44,22 @@ function TypeIcon({ type }: { type: TypeFilter["type"] }) {
 }
 
 export function Sidebar({
-  activeType,
+  activeType = "all",
   onTypeChange,
   onNewItem,
-  categories,
-  selectedCategoryId,
+  categories = [],
+  selectedCategoryId = null,
   onCategoryChange,
-  tags,
-  selectedTag,
+  tags = [],
+  selectedTag = null,
   onTagChange,
-  hasActiveFilters,
+  hasActiveFilters = false,
   onClearFilters,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const isLibraryActive = pathname === "/library" || pathname.startsWith("/library/");
+  const isBrainActive = pathname === "/brain" || pathname.startsWith("/brain/");
   const isSettingsActive = pathname === "/settings" || pathname.startsWith("/settings/");
 
   return (
@@ -102,6 +104,8 @@ export function Sidebar({
               onTagChange={onTagChange}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={onClearFilters}
+              isBrainActive={isBrainActive}
+              isLibraryActive={isLibraryActive}
               isSettingsActive={isSettingsActive}
               onAfterSelect={() => setIsOpen(false)}
             />
@@ -124,6 +128,8 @@ export function Sidebar({
             onTagChange={onTagChange}
             hasActiveFilters={hasActiveFilters}
             onClearFilters={onClearFilters}
+            isBrainActive={isBrainActive}
+            isLibraryActive={isLibraryActive}
             isSettingsActive={isSettingsActive}
           />
         </div>
@@ -158,35 +164,63 @@ function SidebarContent({
   onTagChange,
   hasActiveFilters,
   onClearFilters,
+  isBrainActive,
+  isLibraryActive,
   isSettingsActive,
   onAfterSelect,
 }: SidebarProps & {
+  isBrainActive: boolean;
+  isLibraryActive: boolean;
   isSettingsActive: boolean;
   onAfterSelect?: () => void;
 }) {
+  const hasLibraryControls = Boolean(onTypeChange);
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          onNewItem();
-          onAfterSelect?.();
-        }}
-        className="mt-6 inline-flex items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
-      >
-        <Plus className="size-4" aria-hidden="true" />
-        New Item
-      </button>
+      {onNewItem ? (
+        <button
+          type="button"
+          onClick={() => {
+            onNewItem();
+            onAfterSelect?.();
+          }}
+          className="mt-6 inline-flex items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          New Item
+        </button>
+      ) : null}
 
-      <nav className="mt-4 grid gap-1" aria-label="App navigation">
+      <nav className={onNewItem ? "mt-4 grid gap-1" : "mt-6 grid gap-1"} aria-label="App navigation">
         <Link
           href="/library"
           onClick={() => onAfterSelect?.()}
-          className="flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+          className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+            isLibraryActive ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
+          }`}
         >
           <BookOpen className="size-4" aria-hidden="true" />
           Library
         </Link>
+        <Link
+          href="/brain"
+          onClick={() => onAfterSelect?.()}
+          className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+            isBrainActive ? "bg-[#21243A] text-[#FBBF24]" : "text-[#64748B] hover:bg-[#21243A]"
+          }`}
+        >
+          <Network className="size-4" aria-hidden="true" />
+          Brain
+        </Link>
+        <button
+          type="button"
+          className="flex w-full cursor-not-allowed items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium text-[#374151]"
+          disabled
+        >
+          <MessageSquare className="size-4" aria-hidden="true" />
+          Chat
+        </button>
         <Link
           href="/settings"
           onClick={() => onAfterSelect?.()}
@@ -199,26 +233,28 @@ function SidebarContent({
         </Link>
       </nav>
 
-      <nav className="mt-6 space-y-1" aria-label="Library type filters">
-        {typeFilters.map(({ type, label }) => (
-          <button
-            key={type}
-            type="button"
-            onClick={() => {
-              onTypeChange(type);
-              onAfterSelect?.();
-            }}
-            className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
-              activeType === type ? "bg-[#21243A] text-[#E2E8F0]" : "text-[#64748B] hover:bg-[#21243A]"
-            }`}
-          >
-            <TypeIcon type={type} />
-            {label}
-          </button>
-        ))}
-      </nav>
+      {hasLibraryControls ? (
+        <nav className="mt-6 space-y-1" aria-label="Library type filters">
+          {typeFilters.map(({ type, label }) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => {
+                onTypeChange?.(type);
+                onAfterSelect?.();
+              }}
+              className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                activeType === type ? "bg-[#21243A] text-[#E2E8F0]" : "text-[#64748B] hover:bg-[#21243A]"
+              }`}
+            >
+              <TypeIcon type={type} />
+              {label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
 
-      {hasActiveFilters ? (
+      {hasLibraryControls && hasActiveFilters && onClearFilters ? (
         <button
           type="button"
           onClick={() => {
@@ -231,51 +267,55 @@ function SidebarContent({
         </button>
       ) : null}
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Categories</h2>
-        <div className="space-y-1">
-          {categories.length > 0 ? categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              onClick={() => {
-                onCategoryChange(selectedCategoryId === category.id ? null : category.id);
-                onAfterSelect?.();
-              }}
-              className={`flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
-                selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
-              }`}
-            >
-              <span className="min-w-0 flex-1 truncate">{category.name}</span>
-              <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
-            </button>
-          )) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}
-        </div>
-      </section>
+      {hasLibraryControls ? (
+        <section className="mt-6">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Categories</h2>
+          <div className="space-y-1">
+            {categories && categories.length > 0 ? categories.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => {
+                  onCategoryChange?.(selectedCategoryId === category.id ? null : category.id);
+                  onAfterSelect?.();
+                }}
+                className={`flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                  selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate">{category.name}</span>
+                <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
+              </button>
+            )) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}
+          </div>
+        </section>
+      ) : null}
 
-      <section className="mt-6">
-        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Tags</h2>
-        <div className="flex flex-wrap gap-2">
-          {tags.length > 0 ? tags.slice(0, 12).map((tag) => (
-            <button
-              key={tag.label}
-              type="button"
-              onClick={() => {
-                onTagChange(selectedTag === tag.label ? null : tag.label);
-                onAfterSelect?.();
-              }}
-              className={`inline-flex max-w-full items-center gap-1 rounded-[4px] border px-2 py-1 text-xs font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
-                selectedTag === tag.label
-                  ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#FBBF24]"
-                  : "border-[#2A2D3E] bg-[#0F1117] text-[#64748B] hover:bg-[#21243A]"
-              }`}
-            >
-              <span className="truncate">{tag.label}</span>
-              <span className="font-mono">{tag.count}</span>
-            </button>
-          )) : <p className="px-3 py-2 text-xs text-[#64748B]">No tags</p>}
-        </div>
-      </section>
+      {hasLibraryControls ? (
+        <section className="mt-6">
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Tags</h2>
+          <div className="flex flex-wrap gap-2">
+            {tags && tags.length > 0 ? tags.slice(0, 12).map((tag) => (
+              <button
+                key={tag.label}
+                type="button"
+                onClick={() => {
+                  onTagChange?.(selectedTag === tag.label ? null : tag.label);
+                  onAfterSelect?.();
+                }}
+                className={`inline-flex max-w-full items-center gap-1 rounded-[4px] border px-2 py-1 text-xs font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                  selectedTag === tag.label
+                    ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#FBBF24]"
+                    : "border-[#2A2D3E] bg-[#0F1117] text-[#64748B] hover:bg-[#21243A]"
+                }`}
+              >
+                <span className="truncate">{tag.label}</span>
+                <span className="font-mono">{tag.count}</span>
+              </button>
+            )) : <p className="px-3 py-2 text-xs text-[#64748B]">No tags</p>}
+          </div>
+        </section>
+      ) : null}
 
       <div className="mt-auto grid gap-3 border-t border-[#2A2D3E] pt-4">
         <a
