@@ -13,6 +13,14 @@ interface SidebarProps {
   activeType: ItemType | "all";
   onTypeChange: (type: ItemType | "all") => void;
   onNewItem: () => void;
+  categories: Array<{ id: string; count: number }>;
+  selectedCategoryId: string | null;
+  onCategoryChange: (categoryId: string | null) => void;
+  tags: Array<{ label: string; count: number }>;
+  selectedTag: string | null;
+  onTagChange: (tag: string | null) => void;
+  hasActiveFilters: boolean;
+  onClearFilters: () => void;
 }
 
 const typeFilters: TypeFilter[] = [
@@ -24,8 +32,6 @@ const typeFilters: TypeFilter[] = [
   { type: "snippet", label: "Snippet" },
 ];
 
-const categories = ["Workflow", "Architecture", "Reference", "Commands"];
-
 function TypeIcon({ type }: { type: TypeFilter["type"] }) {
   if (type === "prompt") return <BookOpen className="size-4" aria-hidden="true" />;
   if (type === "note") return <FileText className="size-4" aria-hidden="true" />;
@@ -35,7 +41,19 @@ function TypeIcon({ type }: { type: TypeFilter["type"] }) {
   return <Brain className="size-4" aria-hidden="true" />;
 }
 
-export function Sidebar({ activeType, onTypeChange, onNewItem }: SidebarProps) {
+export function Sidebar({
+  activeType,
+  onTypeChange,
+  onNewItem,
+  categories,
+  selectedCategoryId,
+  onCategoryChange,
+  tags,
+  selectedTag,
+  onTagChange,
+  hasActiveFilters,
+  onClearFilters,
+}: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -68,7 +86,20 @@ export function Sidebar({ activeType, onTypeChange, onNewItem }: SidebarProps) {
                 <X className="size-4" aria-hidden="true" />
               </button>
             </div>
-            <SidebarContent activeType={activeType} onTypeChange={onTypeChange} onNewItem={onNewItem} onAfterSelect={() => setIsOpen(false)} />
+            <SidebarContent
+              activeType={activeType}
+              onTypeChange={onTypeChange}
+              onNewItem={onNewItem}
+              categories={categories}
+              selectedCategoryId={selectedCategoryId}
+              onCategoryChange={onCategoryChange}
+              tags={tags}
+              selectedTag={selectedTag}
+              onTagChange={onTagChange}
+              hasActiveFilters={hasActiveFilters}
+              onClearFilters={onClearFilters}
+              onAfterSelect={() => setIsOpen(false)}
+            />
           </div>
         </div>
       ) : null}
@@ -76,7 +107,19 @@ export function Sidebar({ activeType, onTypeChange, onNewItem }: SidebarProps) {
       <aside className="fixed inset-y-0 left-0 hidden w-[240px] border-r border-[#2A2D3E] bg-[#1A1D27] md:block">
         <div className="flex h-full flex-col p-4">
           <Brand />
-          <SidebarContent activeType={activeType} onTypeChange={onTypeChange} onNewItem={onNewItem} />
+          <SidebarContent
+            activeType={activeType}
+            onTypeChange={onTypeChange}
+            onNewItem={onNewItem}
+            categories={categories}
+            selectedCategoryId={selectedCategoryId}
+            onCategoryChange={onCategoryChange}
+            tags={tags}
+            selectedTag={selectedTag}
+            onTagChange={onTagChange}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={onClearFilters}
+          />
         </div>
       </aside>
     </>
@@ -101,6 +144,14 @@ function SidebarContent({
   activeType,
   onTypeChange,
   onNewItem,
+  categories,
+  selectedCategoryId,
+  onCategoryChange,
+  tags,
+  selectedTag,
+  onTagChange,
+  hasActiveFilters,
+  onClearFilters,
   onAfterSelect,
 }: SidebarProps & {
   onAfterSelect?: () => void;
@@ -138,19 +189,62 @@ function SidebarContent({
         ))}
       </nav>
 
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          onClick={() => {
+            onClearFilters();
+            onAfterSelect?.();
+          }}
+          className="mt-3 inline-flex w-full items-center justify-center rounded-[4px] border border-[#F59E0B] px-3 py-2 text-sm font-medium text-[#FBBF24] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
+          Clear filters
+        </button>
+      ) : null}
+
       <section className="mt-6">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Categories</h2>
         <div className="space-y-1">
-          {categories.map((category) => (
+          {categories.length > 0 ? categories.map((category) => (
             <button
-              key={category}
+              key={category.id}
               type="button"
-              className="flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+              onClick={() => {
+                onCategoryChange(selectedCategoryId === category.id ? null : category.id);
+                onAfterSelect?.();
+              }}
+              className={`flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
+              }`}
             >
-              <span className="truncate">{category}</span>
-              <span className="font-mono text-xs text-[#64748B]">0</span>
+              <span className="truncate">{category.id}</span>
+              <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
             </button>
-          ))}
+          )) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Tags</h2>
+        <div className="flex flex-wrap gap-2">
+          {tags.length > 0 ? tags.slice(0, 12).map((tag) => (
+            <button
+              key={tag.label}
+              type="button"
+              onClick={() => {
+                onTagChange(selectedTag === tag.label ? null : tag.label);
+                onAfterSelect?.();
+              }}
+              className={`inline-flex max-w-full items-center gap-1 rounded-[4px] border px-2 py-1 text-xs font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                selectedTag === tag.label
+                  ? "border-[#F59E0B] bg-[#F59E0B]/10 text-[#FBBF24]"
+                  : "border-[#2A2D3E] bg-[#0F1117] text-[#64748B] hover:bg-[#21243A]"
+              }`}
+            >
+              <span className="truncate">{tag.label}</span>
+              <span className="font-mono">{tag.count}</span>
+            </button>
+          )) : <p className="px-3 py-2 text-xs text-[#64748B]">No tags</p>}
         </div>
       </section>
 

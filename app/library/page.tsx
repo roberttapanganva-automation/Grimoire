@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { ItemCard } from "@/components/items/ItemCard";
 import { ItemDetail } from "@/components/items/ItemDetail";
+import { ItemRow } from "@/components/items/ItemRow";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { itemTypes } from "@/lib/items";
-import type { Item, ItemFormValues, ItemType } from "@/types";
+import type { Item, ItemFormValues, ItemType, SortMode, ViewMode } from "@/types";
 
 const emptyFormValues: ItemFormValues = {
   type: "note",
@@ -22,16 +24,51 @@ const emptyFormValues: ItemFormValues = {
   isPinned: false,
 };
 
+const validItemTypes = new Set<ItemType>(itemTypes);
+
+function getItemTags(item: Item) {
+  return Array.isArray(item.tags) ? item.tags : [];
+}
+
+function getTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return 0;
+  }
+
+  const timestamp = new Date(value).getTime();
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getRecentTimestamp(item: Item) {
+  return getTimestamp(item.updatedAt) || getTimestamp(item.createdAt);
+}
+
+function getSearchableText(item: Item) {
+  return [item.title, item.content, item.command, item.url, item.type, ...getItemTags(item)]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function getUsageScore(item: Item) {
+  return (item.useCount ?? 0) || (item.copyCount ?? 0);
+}
+
 export default function LibraryPage() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-  const [searchValue, setSearchValue] = useState("");
-  const [activeType, setActiveType] = useState<ItemType | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState<ItemType | "all">("all");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>("recent");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<Item | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isPaletteOpen, setIsPaletteOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -75,17 +112,97 @@ export default function LibraryPage() {
     };
   }, [router]);
 
-  const filteredItems = useMemo(() => {
-    const query = searchValue.trim().toLowerCase();
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
 
-    return items.filter((item) => {
-      const matchesType = activeType === "all" || item.type === activeType;
-      const searchable = [item.title, item.content, item.command, item.url, ...item.tags].filter(Boolean).join(" ").toLowerCase();
-      const matchesSearch = !query || searchable.includes(query);
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        setIsPaletteOpen(true);
+        return;
+      }
 
-      return matchesType && matchesSearch;
+      if (event.key === "Escape") {
+        setIsPaletteOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  const categoryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    items.forEach((item) => {
+      if (!item.categoryId) {
+        return;
+      }
+
+      counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
     });
-  }, [activeType, items, searchValue]);
+
+    return Array.from(counts.entries())
+      .map(([id, count]) => ({ id, count }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }, [items]);
+
+  const tagOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    items.forEach((item) => {
+      getItemTags(item).forEach((tag) => {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      });
+    });
+
+    return Array.from(counts.entries())
+      .map(([label, count]) => ({ label, count }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [items]);
+
+  const filteredAndSortedItems = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = items.filter((item) => {
+      const normalizedType = validItemTypes.has(item.type) ? item.type : "note";
+      const tags = getItemTags(item);
+      const matchesType = selectedType === "all" || normalizedType === selectedType;
+      const matchesCategory = !selectedCategoryId || item.categoryId === selectedCategoryId;
+      const matchesTag = !selectedTag || tags.includes(selectedTag);
+      const matchesSearch = !query || getSearchableText(item).includes(query);
+
+      return matchesType && matchesCategory && matchesTag && matchesSearch;
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortMode === "alphabetical") {
+        return (a.title ?? "").localeCompare(b.title ?? "");
+      }
+
+      if (sortMode === "mostUsed") {
+        return getUsageScore(b) - getUsageScore(a);
+      }
+
+      if (sortMode === "pinnedFirst") {
+        return Number(b.isPinned) - Number(a.isPinned) || getRecentTimestamp(b) - getRecentTimestamp(a);
+      }
+
+      return getRecentTimestamp(b) - getRecentTimestamp(a);
+    });
+  }, [items, searchQuery, selectedCategoryId, selectedTag, selectedType, sortMode]);
+
+  const hasActiveFilters = searchQuery.trim().length > 0 || selectedType !== "all" || selectedCategoryId !== null || selectedTag !== null;
+
+  function clearFilters() {
+    setSearchQuery("");
+    setSelectedType("all");
+    setSelectedCategoryId(null);
+    setSelectedTag(null);
+  }
 
   function updateItemInState(updatedItem: Item) {
     setItems((current) => current.map((item) => (item.id === updatedItem.id ? updatedItem : item)));
@@ -178,11 +295,34 @@ export default function LibraryPage() {
 
   return (
     <div className="min-h-screen bg-[#0F1117] font-sans text-[#E2E8F0]">
-      <Sidebar activeType={activeType} onTypeChange={setActiveType} onNewItem={openCreateForm} />
+      <Sidebar
+        activeType={selectedType}
+        onTypeChange={setSelectedType}
+        onNewItem={openCreateForm}
+        categories={categoryOptions}
+        selectedCategoryId={selectedCategoryId}
+        onCategoryChange={setSelectedCategoryId}
+        tags={tagOptions}
+        selectedTag={selectedTag}
+        onTagChange={setSelectedTag}
+        hasActiveFilters={hasActiveFilters}
+        onClearFilters={clearFilters}
+      />
 
       <div className="md:pl-[240px]">
         <div className="xl:pr-[380px]">
-          <TopBar totalItems={filteredItems.length} searchValue={searchValue} onSearchChange={setSearchValue} activeType={activeType} />
+          <TopBar
+            totalItems={filteredAndSortedItems.length}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            activeType={selectedType}
+            sortMode={sortMode}
+            onSortModeChange={setSortMode}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            hasActiveFilters={hasActiveFilters}
+            onClearFilters={clearFilters}
+          />
 
           <main className="p-4 md:p-6">
             {statusMessage ? (
@@ -195,22 +335,36 @@ export default function LibraryPage() {
               <section className="flex min-h-[320px] items-center justify-center rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-8 text-center text-sm text-[#64748B]">
                 Loading your library...
               </section>
-            ) : filteredItems.length > 0 ? (
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-                {filteredItems.map((item) => (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    isSelected={selectedItem?.id === item.id}
-                    onCopy={() => undefined}
-                    onSelect={() => setSelectedItem(item)}
-                    onCopyCountChange={(copyCount) => updateCopyCount(item.id, copyCount)}
-                  />
+            ) : filteredAndSortedItems.length > 0 ? (
+              <div className={viewMode === "grid" ? "grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3" : "grid grid-cols-1 gap-3"}>
+                {filteredAndSortedItems.map((item) => (
+                  viewMode === "grid" ? (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      isSelected={selectedItem?.id === item.id}
+                      onCopy={() => undefined}
+                      onSelect={() => setSelectedItem(item)}
+                      onTagSelect={setSelectedTag}
+                      onCopyCountChange={(copyCount) => updateCopyCount(item.id, copyCount)}
+                    />
+                  ) : (
+                    <ItemRow
+                      key={item.id}
+                      item={item}
+                      isSelected={selectedItem?.id === item.id}
+                      isCompact={viewMode === "compact"}
+                      onCopy={() => undefined}
+                      onSelect={() => setSelectedItem(item)}
+                      onTagSelect={setSelectedTag}
+                      onCopyCountChange={(copyCount) => updateCopyCount(item.id, copyCount)}
+                    />
+                  )
                 ))}
               </div>
             ) : (
               <section className="flex min-h-[320px] items-center justify-center rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-8 text-center text-sm text-[#64748B]">
-                No library items found. Create your first item from the sidebar.
+                {items.length === 0 ? "No library items found. Create your first item from the sidebar." : "No items match the current filters."}
               </section>
             )}
           </main>
@@ -223,6 +377,7 @@ export default function LibraryPage() {
           onClose={() => setSelectedItem(null)}
           onEdit={openEditForm}
           onDelete={deleteSelectedItem}
+          onTagSelect={setSelectedTag}
           onCopyCountChange={(copyCount) => {
             if (selectedItem) {
               updateCopyCount(selectedItem.id, copyCount);
@@ -243,6 +398,14 @@ export default function LibraryPage() {
           onSave={saveItem}
         />
       ) : null}
+
+      <CommandPalette
+        isOpen={isPaletteOpen}
+        items={items}
+        onClose={() => setIsPaletteOpen(false)}
+        onNewItem={openCreateForm}
+        onSelectItem={setSelectedItem}
+      />
     </div>
   );
 }
@@ -276,7 +439,7 @@ function itemToFormValues(item: Item | null): ItemFormValues {
     url: item.url ?? "",
     command: item.command ?? "",
     variables: item.variables ?? [],
-    tags: item.tags.join(", "),
+    tags: getItemTags(item).join(", "),
     categoryId: item.categoryId ?? "",
     isPinned: item.isPinned,
   };
