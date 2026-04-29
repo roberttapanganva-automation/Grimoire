@@ -9,8 +9,9 @@ import { ItemRow } from "@/components/items/ItemRow";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
+import { CategorySelect } from "@/components/ui/CategorySelect";
 import { itemTypes } from "@/lib/items";
-import type { Item, ItemFormValues, ItemType, SortMode, ViewMode } from "@/types";
+import type { Category, Item, ItemFormValues, ItemType, SortMode, ViewMode } from "@/types";
 
 const emptyFormValues: ItemFormValues = {
   type: "note",
@@ -57,6 +58,7 @@ function getUsageScore(item: Item) {
 export default function LibraryPage() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<ItemType | "all">("all");
@@ -77,30 +79,36 @@ export default function LibraryPage() {
       setIsLoading(true);
       setStatusMessage(null);
 
-      const response = await fetch("/api/items", {
-        cache: "no-store",
-      });
+      const [itemsResponse, categoriesResponse] = await Promise.all([
+        fetch("/api/items", { cache: "no-store" }),
+        fetch("/api/categories", { cache: "no-store" }),
+      ]);
 
-      if (response.status === 401) {
+      if (itemsResponse.status === 401 || categoriesResponse.status === 401) {
         router.replace("/login");
         return;
       }
 
-      if (!response.ok) {
+      if (!itemsResponse.ok || !categoriesResponse.ok) {
         if (isMounted) {
           setStatusMessage("Could not load your library yet. Check the Supabase items table and try again.");
           setItems([]);
+          setCategories([]);
           setSelectedItem(null);
           setIsLoading(false);
         }
         return;
       }
 
-      const result = (await response.json()) as { items: Item[] };
+      const [itemsResult, categoriesResult] = (await Promise.all([itemsResponse.json(), categoriesResponse.json()])) as [
+        { items: Item[] },
+        { categories: Category[] },
+      ];
 
       if (isMounted) {
-        setItems(result.items);
-        setSelectedItem((current) => current ?? result.items[0] ?? null);
+        setItems(itemsResult.items);
+        setCategories(categoriesResult.categories);
+        setSelectedItem((current) => current ?? itemsResult.items[0] ?? null);
         setIsLoading(false);
       }
     }
@@ -145,10 +153,11 @@ export default function LibraryPage() {
       counts.set(item.categoryId, (counts.get(item.categoryId) ?? 0) + 1);
     });
 
-    return Array.from(counts.entries())
-      .map(([id, count]) => ({ id, count }))
-      .sort((a, b) => a.id.localeCompare(b.id));
-  }, [items]);
+    return categories.map((category) => ({
+      ...category,
+      count: counts.get(category.id) ?? 0,
+    }));
+  }, [categories, items]);
 
   const tagOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -396,6 +405,7 @@ export default function LibraryPage() {
             setStatusMessage(null);
           }}
           onSave={saveItem}
+          categories={categories}
         />
       ) : null}
 
@@ -450,11 +460,13 @@ function ItemEditorModal({
   errorMessage,
   onClose,
   onSave,
+  categories,
 }: {
   item: Item | null;
   errorMessage: string | null;
   onClose: () => void;
   onSave: (values: ItemFormValues) => Promise<void>;
+  categories: Category[];
 }) {
   const [values, setValues] = useState<ItemFormValues>(() => itemToFormValues(item));
   const [isSaving, setIsSaving] = useState(false);
@@ -536,14 +548,7 @@ function ItemEditorModal({
               />
             </label>
 
-            <label className="grid gap-2 text-sm font-medium text-[#E2E8F0]">
-              Category
-              <input
-                value={values.categoryId}
-                onChange={(event) => setValues((current) => ({ ...current, categoryId: event.target.value }))}
-                className="rounded-[4px] border border-[#2A2D3E] bg-[#0F1117] px-3 py-2 text-sm text-[#E2E8F0] transition-colors duration-150 placeholder:text-[#374151] focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-amber-400"
-              />
-            </label>
+            <CategorySelect categories={categories} value={values.categoryId} onChange={(categoryId) => setValues((current) => ({ ...current, categoryId }))} />
           </div>
 
           <label className="grid gap-2 text-sm font-medium text-[#E2E8F0]">

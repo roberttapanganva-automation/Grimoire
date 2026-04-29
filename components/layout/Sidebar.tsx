@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import type { ItemType } from "@/types";
-import { BookOpen, Brain, Code2, FileText, Link2, LogOut, Menu, Plus, Terminal, X } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import type { Category, ItemType } from "@/types";
+import { BookOpen, Brain, Code2, FileText, Link2, LogOut, Menu, Plus, Settings, Terminal, X } from "lucide-react";
 
 interface TypeFilter {
   type: ItemType | "all";
@@ -13,7 +15,7 @@ interface SidebarProps {
   activeType: ItemType | "all";
   onTypeChange: (type: ItemType | "all") => void;
   onNewItem: () => void;
-  categories: Array<{ id: string; count: number }>;
+  categories: Array<Category & { count: number }>;
   selectedCategoryId: string | null;
   onCategoryChange: (categoryId: string | null) => void;
   tags: Array<{ label: string; count: number }>;
@@ -55,6 +57,8 @@ export function Sidebar({
   onClearFilters,
 }: SidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
+  const isSettingsActive = pathname === "/settings" || pathname.startsWith("/settings/");
 
   return (
     <>
@@ -98,6 +102,7 @@ export function Sidebar({
               onTagChange={onTagChange}
               hasActiveFilters={hasActiveFilters}
               onClearFilters={onClearFilters}
+              isSettingsActive={isSettingsActive}
               onAfterSelect={() => setIsOpen(false)}
             />
           </div>
@@ -119,6 +124,7 @@ export function Sidebar({
             onTagChange={onTagChange}
             hasActiveFilters={hasActiveFilters}
             onClearFilters={onClearFilters}
+            isSettingsActive={isSettingsActive}
           />
         </div>
       </aside>
@@ -152,8 +158,10 @@ function SidebarContent({
   onTagChange,
   hasActiveFilters,
   onClearFilters,
+  isSettingsActive,
   onAfterSelect,
 }: SidebarProps & {
+  isSettingsActive: boolean;
   onAfterSelect?: () => void;
 }) {
   return (
@@ -169,6 +177,27 @@ function SidebarContent({
         <Plus className="size-4" aria-hidden="true" />
         New Item
       </button>
+
+      <nav className="mt-4 grid gap-1" aria-label="App navigation">
+        <Link
+          href="/library"
+          onClick={() => onAfterSelect?.()}
+          className="flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+        >
+          <BookOpen className="size-4" aria-hidden="true" />
+          Library
+        </Link>
+        <Link
+          href="/settings"
+          onClick={() => onAfterSelect?.()}
+          className={`flex w-full items-center gap-2 rounded-[4px] px-3 py-2 text-sm font-medium transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+            isSettingsActive ? "bg-[#21243A] text-[#FBBF24]" : "text-[#64748B] hover:bg-[#21243A]"
+          }`}
+        >
+          <Settings className="size-4" aria-hidden="true" />
+          Settings
+        </Link>
+      </nav>
 
       <nav className="mt-6 space-y-1" aria-label="Library type filters">
         {typeFilters.map(({ type, label }) => (
@@ -217,7 +246,7 @@ function SidebarContent({
                 selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
               }`}
             >
-              <span className="truncate">{category.id}</span>
+              <span className="min-w-0 flex-1 truncate">{category.name}</span>
               <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
             </button>
           )) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}

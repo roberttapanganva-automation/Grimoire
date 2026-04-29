@@ -2,6 +2,17 @@ export type ItemType = "prompt" | "note" | "link" | "command" | "snippet";
 export type SortMode = "recent" | "mostUsed" | "alphabetical" | "pinnedFirst";
 export type ViewMode = "grid" | "list" | "compact";
 
+export interface Category {
+  id: string;
+  userId: string;
+  name: string;
+  color: string;
+  icon: string;
+  parentId: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
 export interface Item {
   id: string;
   userId?: string;

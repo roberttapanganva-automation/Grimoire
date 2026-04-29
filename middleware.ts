@@ -34,13 +34,18 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = pathname === "/login";
   const isAuthCallback = pathname.startsWith("/auth/callback");
   const isItemApi = pathname.startsWith("/api/items");
+  const isCategoryApi = pathname.startsWith("/api/categories");
+  const isTagApi = pathname.startsWith("/api/tags");
+  const isImportApi = pathname.startsWith("/api/import");
+  const isExportApi = pathname.startsWith("/api/export");
   const isLibrary = pathname === "/library" || pathname.startsWith("/library/");
+  const isSettings = pathname === "/settings" || pathname.startsWith("/settings/");
 
-  if (!user && isItemApi) {
+  if (!user && (isItemApi || isCategoryApi || isTagApi || isImportApi || isExportApi)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!user && isLibrary) {
+  if (!user && (isLibrary || isSettings)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", pathname);
