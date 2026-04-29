@@ -19,7 +19,7 @@ export function TopBar({ totalItems, searchValue, onSearchChange, activeType }: 
         <div>
           <h1 className="text-2xl font-semibold text-[#E2E8F0]">Library</h1>
           <p className="mt-1 text-sm text-[#64748B]">
-            {totalItems} local demo items / {filterLabel}
+            {totalItems} private items / {filterLabel}
           </p>
         </div>
         <div className="flex flex-col gap-3 md:flex-row md:items-center">

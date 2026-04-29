@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 interface CopyButtonProps {
   content: string;
   itemId: string;
   initialCount: number;
+  onCopyCountChange?: (copyCount: number) => void;
 }
 
 function copyWithFallback(content: string) {
@@ -20,24 +21,55 @@ function copyWithFallback(content: string) {
   document.body.removeChild(textarea);
 }
 
-export function CopyButton({ content, itemId, initialCount }: CopyButtonProps) {
+export function CopyButton({ content, itemId, initialCount, onCopyCountChange }: CopyButtonProps) {
   const [copyCount, setCopyCount] = useState(initialCount);
   const [isCopied, setIsCopied] = useState(false);
+
+  useEffect(() => {
+    setCopyCount(initialCount);
+  }, [initialCount]);
 
   async function handleCopy() {
     if (!content) {
       return;
     }
 
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(content);
-    } else {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(content);
+      } else {
+        copyWithFallback(content);
+      }
+    } catch {
       copyWithFallback(content);
     }
 
-    setCopyCount((current) => current + 1);
+    const optimisticCount = copyCount + 1;
+    setCopyCount(optimisticCount);
+    onCopyCountChange?.(optimisticCount);
     setIsCopied(true);
     window.setTimeout(() => setIsCopied(false), 1200);
+
+    const response = await fetch(`/api/items/${itemId}/copy`, {
+      method: "PATCH",
+    }).catch(() => null);
+
+    if (!response) {
+      return;
+    }
+
+    if (response.status === 401) {
+      window.location.href = "/login";
+      return;
+    }
+
+    if (response.ok) {
+      const result = (await response.json()) as { copyCount?: number };
+      if (typeof result.copyCount === "number") {
+        setCopyCount(result.copyCount);
+        onCopyCountChange?.(result.copyCount);
+      }
+    }
   }
 
   return (
