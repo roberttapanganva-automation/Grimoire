@@ -15,3 +15,17 @@ export interface Item {
   createdAt: string;
   updatedAt: string;
 }
+
+export type SortMode = "recent" | "most-used" | "most-copied" | "alphabetical" | "pinned-first";
+
+export type ViewMode = "grid" | "list";
+
+export interface ItemFormValues {
+  type: ItemType;
+  title: string;
+  content: string;
+  url: string;
+  command: string;
+  tags: string[];
+  categoryId: string | null;
+}
