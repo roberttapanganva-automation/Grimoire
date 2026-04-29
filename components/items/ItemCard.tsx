@@ -11,6 +11,7 @@ interface ItemCardProps {
   isSelected: boolean;
   onCopy: () => void;
   onSelect: () => void;
+  onTagSelect?: (tag: string) => void;
   onCopyCountChange?: (copyCount: number) => void;
 }
 
@@ -22,7 +23,7 @@ function getPreview(item: Item) {
   return item.command ?? item.content ?? item.url ?? "No content yet.";
 }
 
-export function ItemCard({ item, isSelected, onCopy, onSelect, onCopyCountChange }: ItemCardProps) {
+export function ItemCard({ item, isSelected, onCopy, onSelect, onTagSelect, onCopyCountChange }: ItemCardProps) {
   const isMono = item.type === "prompt" || item.type === "command" || item.type === "snippet";
 
   return (
@@ -47,7 +48,7 @@ export function ItemCard({ item, isSelected, onCopy, onSelect, onCopyCountChange
       <div className="mt-5 flex items-end justify-between gap-3">
         <div className="flex min-w-0 flex-wrap gap-2">
           {item.tags.slice(0, 3).map((tag) => (
-            <TagChip key={tag} label={tag} />
+            <TagChip key={tag} label={tag} onClick={onTagSelect ? () => onTagSelect(tag) : undefined} />
           ))}
         </div>
         <div

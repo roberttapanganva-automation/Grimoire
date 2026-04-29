@@ -11,6 +11,7 @@ interface ItemDetailProps {
   onClose: () => void;
   onEdit: () => void;
   onDelete?: () => void;
+  onTagSelect?: (tag: string) => void;
   onCopyCountChange?: (copyCount: number) => void;
 }
 
@@ -22,7 +23,7 @@ function getDisplayContent(item: Item) {
   return item.command ?? item.content ?? item.url ?? "No content available.";
 }
 
-export function ItemDetail({ item, onClose, onEdit, onDelete, onCopyCountChange }: ItemDetailProps) {
+export function ItemDetail({ item, onClose, onEdit, onDelete, onTagSelect, onCopyCountChange }: ItemDetailProps) {
   if (!item) {
     return null;
   }
@@ -69,7 +70,7 @@ export function ItemDetail({ item, onClose, onEdit, onDelete, onCopyCountChange 
             <h3 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">Tags</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               {item.tags.map((tag) => (
-                <TagChip key={tag} label={tag} />
+                <TagChip key={tag} label={tag} onClick={onTagSelect ? () => onTagSelect(tag) : undefined} />
               ))}
             </div>
           </section>
