@@ -7,6 +7,7 @@ export const demoItems: Item[] = [
     title: "Product Brief Builder",
     content:
       "Turn these rough notes into a concise product brief with problem, audience, goals, scope, risks, and launch checklist: {{notes}}",
+    variables: ["notes"],
     tags: ["product", "planning", "prompt"],
     categoryId: "workflow",
     isPinned: true,
@@ -21,6 +22,7 @@ export const demoItems: Item[] = [
     title: "RAG Pipeline Notes",
     content:
       "Use asynchronous ingestion for large files. Store document status, chunk count, and source excerpts so chat answers can cite where each answer came from.",
+    variables: [],
     tags: ["rag", "architecture", "supabase"],
     categoryId: "architecture",
     isPinned: true,
@@ -35,6 +37,7 @@ export const demoItems: Item[] = [
     title: "Supabase Vector Columns",
     content: "Reference for pgvector setup, vector dimensions, and similarity search in Supabase.",
     url: "https://supabase.com/docs/guides/ai/vector-columns",
+    variables: [],
     tags: ["supabase", "pgvector", "reference"],
     categoryId: "reference",
     isPinned: false,
@@ -49,6 +52,7 @@ export const demoItems: Item[] = [
     title: "Find Large Files",
     content: "Lists files larger than 100 MB under the current directory.",
     command: "Get-ChildItem -Recurse -File | Where-Object { $_.Length -gt 100MB }",
+    variables: [],
     tags: ["powershell", "maintenance"],
     categoryId: "commands",
     isPinned: false,
@@ -63,6 +67,7 @@ export const demoItems: Item[] = [
     title: "Streaming Response Reader",
     content:
       "const reader = response.body?.getReader();\nconst decoder = new TextDecoder();\nwhile (reader) {\n  const { value, done } = await reader.read();\n  if (done) break;\n  buffer += decoder.decode(value, { stream: true });\n}",
+    variables: [],
     tags: ["typescript", "streaming", "nextjs"],
     categoryId: "snippets",
     isPinned: false,
@@ -77,6 +82,7 @@ export const demoItems: Item[] = [
     title: "Code Review Lens",
     content:
       "Review this diff for correctness, edge cases, missing tests, security risks, and maintainability. Lead with actionable findings: {{diff}}",
+    variables: ["diff"],
     tags: ["review", "engineering"],
     categoryId: "workflow",
     isPinned: false,

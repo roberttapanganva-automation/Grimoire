@@ -11,6 +11,7 @@ interface ItemCardProps {
   isSelected: boolean;
   onCopy: () => void;
   onSelect: () => void;
+  onCopyCountChange?: (copyCount: number) => void;
 }
 
 function getCopyContent(item: Item) {
@@ -21,7 +22,7 @@ function getPreview(item: Item) {
   return item.command ?? item.content ?? item.url ?? "No content yet.";
 }
 
-export function ItemCard({ item, isSelected, onCopy, onSelect }: ItemCardProps) {
+export function ItemCard({ item, isSelected, onCopy, onSelect, onCopyCountChange }: ItemCardProps) {
   const isMono = item.type === "prompt" || item.type === "command" || item.type === "snippet";
 
   return (
@@ -55,7 +56,7 @@ export function ItemCard({ item, isSelected, onCopy, onSelect }: ItemCardProps) 
             onCopy();
           }}
         >
-          <CopyButton content={getCopyContent(item)} itemId={item.id} initialCount={item.copyCount} />
+          <CopyButton content={getCopyContent(item)} itemId={item.id} initialCount={item.copyCount} onCopyCountChange={onCopyCountChange} />
         </div>
       </div>
     </article>
