@@ -2,6 +2,10 @@ import type { Document, DocumentFileType, DocumentStatus } from "@/types";
 
 export const allowedDocumentFileTypes: DocumentFileType[] = ["pdf", "txt", "md"];
 export const maxDocumentFileSize = 10 * 1024 * 1024;
+export const brainSchemaMissingMessage =
+  "Brain database tables are missing. Run supabase/brain_schema.sql in Supabase SQL Editor, then refresh.";
+export const storageRlsMessage =
+  "Storage upload blocked by RLS. Expected file path format is userId/documentId/fileName.";
 
 export interface DbDocumentRow {
   id: string;
@@ -13,9 +17,19 @@ export interface DbDocumentRow {
   file_size: number | null;
   source_url: string | null;
   status: DocumentStatus | null;
+  error_message: string | null;
   chunk_count: number | null;
   category_id: string | null;
   tags: string[] | null;
+  created_at: string;
+}
+
+export interface DbDocumentChunkRow {
+  id: string;
+  document_id: string;
+  content: string;
+  chunk_index: number;
+  token_count: number | null;
   created_at: string;
 }
 
@@ -34,9 +48,21 @@ export function mapDbDocumentToDocument(row: DbDocumentRow): Document {
     fileSize: row.file_size ?? 0,
     sourceUrl: row.source_url,
     status: row.status ?? "ready",
+    errorMessage: row.error_message ?? null,
     chunkCount: row.chunk_count ?? 0,
     categoryId: row.category_id,
     tags: row.tags ?? [],
+    createdAt: row.created_at,
+  };
+}
+
+export function mapDbDocumentChunkToChunk(row: DbDocumentChunkRow) {
+  return {
+    id: row.id,
+    documentId: row.document_id,
+    content: row.content,
+    chunkIndex: row.chunk_index,
+    tokenCount: row.token_count ?? 0,
     createdAt: row.created_at,
   };
 }
@@ -83,4 +109,14 @@ export function validateDocumentFile(file: File): { fileType: DocumentFileType }
   }
 
   return { fileType: extension };
+}
+
+export function isMissingBrainSchemaError(error: { code?: string; message?: string; details?: string } | null | undefined) {
+  const text = `${error?.code ?? ""} ${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+  return text.includes("could not find the table") || text.includes("schema cache") || text.includes("relation") && text.includes("does not exist");
+}
+
+export function isStorageRlsError(error: { code?: string; message?: string; details?: string } | null | undefined) {
+  const text = `${error?.code ?? ""} ${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
+  return text.includes("row-level security") || text.includes("violates row-level security policy") || text.includes("rls");
 }

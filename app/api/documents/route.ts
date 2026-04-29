@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { logSupabaseError, safeApiError } from "@/lib/api-errors";
 import {
+  brainSchemaMissingMessage,
   getSafeFileName,
   getTitleFromFileName,
+  isMissingBrainSchemaError,
+  isStorageRlsError,
   mapDbDocumentToDocument,
+  storageRlsMessage,
   validateDocumentFile,
   type DbDocumentRow,
 } from "@/lib/documents";
@@ -12,6 +16,11 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 function storageBucketError(message?: string | null) {
   const detail = message ? ` Supabase said: ${message}` : "";
   return `Could not access the Supabase Storage bucket named "documents". Create it in Supabase Storage and try again.${detail}`;
+}
+
+function storageUploadError(message?: string | null) {
+  const detail = message ? ` Supabase said: ${message}` : "";
+  return `Could not upload document.${detail}`;
 }
 
 export async function GET() {
@@ -32,6 +41,11 @@ export async function GET() {
 
   if (error) {
     logSupabaseError("documents.GET", error);
+
+    if (isMissingBrainSchemaError(error)) {
+      return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 503 });
+    }
+
     return NextResponse.json(safeApiError("Could not load documents", error.message), { status: 500 });
   }
 
@@ -72,7 +86,12 @@ export async function POST(request: Request) {
 
   if (uploadError) {
     logSupabaseError("documents.POST.storageUpload", uploadError);
-    return NextResponse.json(safeApiError("Could not upload document", storageBucketError(uploadError.message)), { status: 500 });
+
+    if (isStorageRlsError(uploadError)) {
+      return NextResponse.json(safeApiError("Could not upload document", storageRlsMessage), { status: 403 });
+    }
+
+    return NextResponse.json(safeApiError("Could not upload document", storageUploadError(uploadError.message)), { status: 500 });
   }
 
   const { data, error } = await supabase
@@ -87,6 +106,7 @@ export async function POST(request: Request) {
       file_size: file.size,
       source_url: null,
       status: "ready",
+      error_message: null,
       chunk_count: 0,
       category_id: null,
       tags: [],
@@ -97,6 +117,11 @@ export async function POST(request: Request) {
   if (error) {
     logSupabaseError("documents.POST.insert", error);
     await supabase.storage.from("documents").remove([storagePath]);
+
+    if (isMissingBrainSchemaError(error)) {
+      return NextResponse.json({ error: brainSchemaMissingMessage, setupRequired: true }, { status: 503 });
+    }
+
     return NextResponse.json(safeApiError("Could not save document metadata", error.message), { status: 500 });
   }
 
