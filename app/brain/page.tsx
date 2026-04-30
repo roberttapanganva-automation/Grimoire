@@ -2,13 +2,14 @@
 
 import { ChangeEvent, DragEvent, FormEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertCircle, CheckCircle2, Eye, FileText, Loader2, Play, RotateCcw, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronRight, Eye, FileText, Loader2, Play, RotateCcw, Search, Trash2, UploadCloud, X } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { brainSchemaMissingMessage, validateDocumentFile } from "@/lib/documents";
 import type { Document as BrainDocument, DocumentChunk, DocumentStatus } from "@/types";
 
 type UploadState = "idle" | "selected" | "uploading" | "success" | "error";
 type MessageTone = "neutral" | "success" | "error";
+type BrainDocumentDetail = Pick<BrainDocument, "id" | "title" | "fileName" | "fileType" | "status" | "errorMessage" | "chunkCount" | "createdAt">;
 
 function formatBytes(bytes: number) {
   if (bytes <= 0) {
@@ -108,10 +109,10 @@ export default function BrainPage() {
     setIsLoading(false);
   }, [router]);
 
-  const loadChunks = useCallback(
+  const loadDocumentDetail = useCallback(
     async (documentId: string) => {
       setIsLoadingChunks(true);
-      const response = await fetch(`/api/documents/${documentId}/chunks`, { cache: "no-store" });
+      const response = await fetch(`/api/documents/${documentId}`, { cache: "no-store" });
 
       if (response.status === 401) {
         router.replace("/login?next=/brain");
@@ -119,15 +120,20 @@ export default function BrainPage() {
       }
 
       if (!response.ok) {
-        const result = (await response.json().catch(() => null)) as { error?: string; detail?: string } | null;
+        const result = (await response.json().catch(() => null)) as { error?: string; detail?: string; setupRequired?: boolean } | null;
+        setIsBrainSetupRequired(Boolean(result?.setupRequired));
         setMessageTone("error");
-        setStatusMessage(result?.detail ?? result?.error ?? "Could not load chunks.");
+        setStatusMessage(result?.setupRequired ? brainSchemaMissingMessage : result?.detail ?? result?.error ?? "Could not load document details.");
         setChunks([]);
         setIsLoadingChunks(false);
+        if (response.status === 404) {
+          setSelectedDocumentId(null);
+        }
         return;
       }
 
-      const result = (await response.json()) as { chunks: DocumentChunk[] };
+      const result = (await response.json()) as { document: BrainDocumentDetail; chunks: DocumentChunk[] };
+      setDocuments((current) => current.map((document) => (document.id === result.document.id ? { ...document, ...result.document } : document)));
       setChunks(result.chunks);
       setIsLoadingChunks(false);
     },
@@ -144,8 +150,8 @@ export default function BrainPage() {
       return;
     }
 
-    void loadChunks(selectedDocumentId);
-  }, [loadChunks, selectedDocumentId]);
+    void loadDocumentDetail(selectedDocumentId);
+  }, [loadDocumentDetail, selectedDocumentId]);
 
   function chooseFile(file: File | null | undefined) {
     if (!file) {
@@ -300,7 +306,7 @@ export default function BrainPage() {
     await loadDocuments({ preserveStatus: true });
 
     if (selectedDocumentId === document.id) {
-      await loadChunks(document.id);
+      await loadDocumentDetail(document.id);
     }
   }
 
@@ -332,8 +338,9 @@ export default function BrainPage() {
       return;
     }
 
+    const result = (await response.json().catch(() => null)) as { error?: string; detail?: string; setupRequired?: boolean; warning?: string | null } | null;
+
     if (!response.ok) {
-      const result = (await response.json().catch(() => null)) as { error?: string; detail?: string; setupRequired?: boolean } | null;
       setIsBrainSetupRequired(Boolean(result?.setupRequired));
       setMessageTone("error");
       setStatusMessage(result?.setupRequired ? brainSchemaMissingMessage : result?.detail ?? result?.error ?? "Could not delete document.");
@@ -342,8 +349,9 @@ export default function BrainPage() {
 
     setDocuments((current) => current.filter((currentDocument) => currentDocument.id !== document.id));
     setSelectedDocumentId((current) => (current === document.id ? null : current));
-    setMessageTone("success");
-    setStatusMessage("Document deleted.");
+    setChunks((current) => (selectedDocumentId === document.id ? [] : current));
+    setMessageTone(result?.warning ? "error" : "success");
+    setStatusMessage(result?.warning ?? "Document deleted.");
   }
 
   return (
@@ -388,7 +396,7 @@ export default function BrainPage() {
           <section className="rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-5">
             <div className="mb-4">
               <h2 className="text-lg font-semibold text-[#E2E8F0]">Upload document</h2>
-              <p className="mt-1 text-sm text-[#64748B]">PDF, TXT, or MD. Maximum size is 10MB.</p>
+              <p className="mt-1 text-sm text-[#64748B]">TXT only for MVP. PDF and Markdown support will be added later. Maximum size is 10MB.</p>
             </div>
 
             <form onSubmit={uploadDocument} className="grid gap-4">
@@ -417,7 +425,7 @@ export default function BrainPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".pdf,.txt,.md,.markdown,application/pdf,text/plain,text/markdown"
+                  accept=".txt,text/plain"
                   onChange={handleFileInputChange}
                   className="sr-only"
                   disabled={isBrainSetupRequired}
@@ -540,7 +548,7 @@ export default function BrainPage() {
                   <div className="flex min-h-[220px] flex-col items-center justify-center px-5 py-10 text-center text-sm text-[#64748B]">
                     <FileText className="mb-3 size-8 text-[#374151]" aria-hidden="true" />
                     <p className="font-medium text-[#E2E8F0]">No documents yet.</p>
-                    <p className="mt-1">Upload a PDF, TXT, or MD file to start building your Brain library.</p>
+                    <p className="mt-1">Upload a TXT file to start building your Brain library.</p>
                   </div>
                 )}
               </div>
@@ -556,6 +564,7 @@ export default function BrainPage() {
           isLoading={isLoadingChunks}
           isProcessing={processingId === selectedDocument.id || selectedDocument.status === "processing"}
           onClose={() => setSelectedDocumentId(null)}
+          onDelete={(event) => void deleteDocument(selectedDocument, event)}
           onProcess={(event) => void processDocument(selectedDocument, event)}
         />
       ) : null}
@@ -569,6 +578,7 @@ function ChunkPreviewPanel({
   isLoading,
   isProcessing,
   onClose,
+  onDelete,
   onProcess,
 }: {
   chunks: DocumentChunk[];
@@ -576,14 +586,39 @@ function ChunkPreviewPanel({
   isLoading: boolean;
   isProcessing: boolean;
   onClose: () => void;
+  onDelete: (event: MouseEvent<HTMLButtonElement>) => void;
   onProcess: (event: MouseEvent<HTMLButtonElement>) => void;
 }) {
   const processLabel = document.chunkCount > 0 ? "Reprocess" : "Process";
+  const [searchQuery, setSearchQuery] = useState("");
+  const [expandedChunkIds, setExpandedChunkIds] = useState<Set<string>>(new Set());
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredChunks = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return chunks;
+    }
+
+    return chunks.filter((chunk) => chunk.content.toLowerCase().includes(normalizedSearchQuery));
+  }, [chunks, normalizedSearchQuery]);
+
+  function toggleChunk(chunkId: string) {
+    setExpandedChunkIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(chunkId)) {
+        next.delete(chunkId);
+      } else {
+        next.add(chunkId);
+      }
+
+      return next;
+    });
+  }
 
   return (
     <aside className="fixed inset-0 z-40 flex bg-[#0F1117]/80 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="ml-auto flex h-full w-full max-w-[440px] flex-col border-l border-[#2A2D3E] bg-[#1A1D27]"
+        className="ml-auto flex h-full w-full max-w-[520px] flex-col border-l border-[#2A2D3E] bg-[#1A1D27]"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="border-b border-[#2A2D3E] p-5">
@@ -602,6 +637,10 @@ function ChunkPreviewPanel({
           </div>
           <h2 className="break-words text-xl font-semibold leading-7 text-[#E2E8F0]">{document.title}</h2>
           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#64748B]">
+            <div className="col-span-2">
+              <dt>File</dt>
+              <dd className="mt-1 break-words font-mono text-[#E2E8F0]">{document.fileName}</dd>
+            </div>
             <div>
               <dt>Type</dt>
               <dd className="mt-1 font-mono uppercase text-[#E2E8F0]">{document.fileType}</dd>
@@ -615,34 +654,66 @@ function ChunkPreviewPanel({
               <dd className="mt-1 text-[#E2E8F0]">{formatDate(document.createdAt)}</dd>
             </div>
           </dl>
+          {document.status === "error" ? (
+            <div className="mt-4 rounded-[6px] border border-[#EF4444]/60 bg-[#0F1117] p-3 text-sm text-[#FCA5A5]">
+              {document.errorMessage ?? "This document could not be processed. Try reprocessing after confirming the file contains readable text."}
+            </div>
+          ) : null}
         </header>
 
         <div className="flex-1 overflow-y-auto p-5">
+          <label className="mb-4 block">
+            <span className="sr-only">Search inside this document</span>
+            <span className="flex items-center gap-2 rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] px-3 py-2 text-sm text-[#E2E8F0] focus-within:ring-1 focus-within:ring-amber-400">
+              <Search className="size-4 shrink-0 text-[#64748B]" aria-hidden="true" />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search inside this document..."
+                className="min-w-0 flex-1 bg-transparent text-sm text-[#E2E8F0] placeholder:text-[#64748B] focus:outline-none"
+              />
+            </span>
+          </label>
+
           {isProcessing ? (
             <div className="flex min-h-[160px] items-center justify-center gap-2 rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] text-sm text-[#64748B]">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Processing chunks...
-            </div>
-          ) : document.status === "error" ? (
-            <div className="rounded-[6px] border border-[#EF4444]/60 bg-[#0F1117] p-4 text-sm text-[#FCA5A5]">
-              {document.errorMessage ?? "This document could not be processed. Try reprocessing after confirming the file contains readable text."}
             </div>
           ) : isLoading ? (
             <div className="flex min-h-[160px] items-center justify-center gap-2 rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] text-sm text-[#64748B]">
               <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               Loading chunks...
             </div>
-          ) : chunks.length > 0 ? (
+          ) : chunks.length > 0 && filteredChunks.length > 0 ? (
             <div className="grid gap-3">
-              {chunks.map((chunk) => (
+              {filteredChunks.map((chunk) => {
+                const isExpanded = expandedChunkIds.has(chunk.id);
+
+                return (
                 <article key={chunk.id} className="rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-4">
-                  <div className="mb-3 flex items-center justify-between gap-3 text-xs">
-                    <span className="font-semibold text-[#E2E8F0]">Chunk {chunk.chunkIndex + 1}</span>
-                    <span className="font-mono text-[#64748B]">{chunk.tokenCount} words</span>
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleChunk(chunk.id)}
+                      className="inline-flex min-w-0 items-center gap-2 rounded-[4px] text-left text-xs font-semibold text-[#E2E8F0] transition-colors duration-150 hover:text-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    >
+                      {isExpanded ? <ChevronDown className="size-4 shrink-0" aria-hidden="true" /> : <ChevronRight className="size-4 shrink-0" aria-hidden="true" />}
+                      <span>Chunk {chunk.chunkIndex + 1}</span>
+                    </button>
+                    <span className="shrink-0 font-mono text-xs text-[#64748B]">{chunk.tokenCount} words</span>
                   </div>
-                  <p className="line-clamp-6 whitespace-pre-wrap font-mono text-xs leading-5 text-[#CBD5E1]">{chunk.content}</p>
+                  <p className={`${isExpanded ? "" : "line-clamp-5"} whitespace-pre-wrap font-mono text-xs leading-5 text-[#CBD5E1]`}>
+                    {chunk.content}
+                  </p>
                 </article>
-              ))}
+                );
+              })}
+            </div>
+          ) : chunks.length > 0 ? (
+            <div className="rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-6 text-center text-sm text-[#64748B]">
+              No chunks match that search.
             </div>
           ) : document.status === "uploading" ? (
             <div className="rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-6 text-center text-sm text-[#64748B]">No chunks yet.</div>
@@ -652,15 +723,25 @@ function ChunkPreviewPanel({
         </div>
 
         <footer className="border-t border-[#2A2D3E] p-5">
-          <button
-            type="button"
-            onClick={onProcess}
-            disabled={isProcessing}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isProcessing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : document.chunkCount > 0 ? <RotateCcw className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
-            {isProcessing ? "Processing" : processLabel}
-          </button>
+          <div className="grid grid-cols-[1fr_auto] gap-2">
+            <button
+              type="button"
+              onClick={onProcess}
+              disabled={isProcessing}
+              className="inline-flex items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isProcessing ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : document.chunkCount > 0 ? <RotateCcw className="size-4" aria-hidden="true" /> : <Play className="size-4" aria-hidden="true" />}
+              {isProcessing ? "Processing" : processLabel}
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              className="inline-flex items-center justify-center rounded-[4px] border border-[#EF4444]/60 px-3 py-2 text-[#FCA5A5] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+              aria-label={`Delete ${document.title}`}
+            >
+              <Trash2 className="size-4" aria-hidden="true" />
+            </button>
+          </div>
         </footer>
       </div>
     </aside>
