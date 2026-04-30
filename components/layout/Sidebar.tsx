@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { getCategoryIcon } from "@/components/ui/categoryIcons";
 import type { Category, ItemType } from "@/types";
 import { BookOpen, Brain, Code2, FileText, Link2, LogOut, Menu, MessageSquare, Network, Plus, Settings, Terminal, X } from "lucide-react";
 
@@ -278,22 +279,29 @@ function SidebarContent({
         <section className="mt-6">
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-[#64748B]">Categories</h2>
           <div className="space-y-1">
-            {categories && categories.length > 0 ? categories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => {
-                  onCategoryChange?.(selectedCategoryId === category.id ? null : category.id);
-                  onAfterSelect?.();
-                }}
-                className={`flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
-                  selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
-                }`}
-              >
-                <span className="min-w-0 flex-1 truncate">{category.name}</span>
-                <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
-              </button>
-            )) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}
+            {categories && categories.length > 0 ? categories.map((category) => {
+              const CategoryIcon = getCategoryIcon(category.icon);
+
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => {
+                    onCategoryChange?.(selectedCategoryId === category.id ? null : category.id);
+                    onAfterSelect?.();
+                  }}
+                  className={`flex w-full items-center justify-between gap-2 rounded-[4px] px-3 py-2 text-sm transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-amber-400 ${
+                    selectedCategoryId === category.id ? "bg-[#21243A] text-[#FBBF24]" : "text-[#E2E8F0] hover:bg-[#21243A]"
+                  }`}
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <CategoryIcon className="size-4 shrink-0" style={{ color: category.color }} aria-hidden="true" />
+                    <span className="truncate">{category.name}</span>
+                  </span>
+                  <span className="font-mono text-xs text-[#64748B]">{category.count}</span>
+                </button>
+              );
+            }) : <p className="px-3 py-2 text-xs text-[#64748B]">No categories</p>}
           </div>
         </section>
       ) : null}

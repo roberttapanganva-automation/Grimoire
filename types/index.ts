@@ -79,6 +79,9 @@ export interface ChatSource {
   similarity: number;
 }
 
+export type ChatMode = "ask_documents" | "job_application" | "interview_coach" | "kiss";
+export type ChatResponseStyle = "direct" | "kiss" | "detailed" | "natural_proposal" | "interview_answer";
+
 export interface ChatMessage {
   id?: string;
   sessionId?: string;

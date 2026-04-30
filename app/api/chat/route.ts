@@ -3,6 +3,7 @@ import { logSupabaseError } from "@/lib/api-errors";
 import { brainSchemaMissingMessage, isMissingBrainSchemaError } from "@/lib/documents";
 import { embedDocumentText, embedQueryText, generateAnswerFromContext, getGeminiApiKey } from "@/lib/server/gemini";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import type { ChatMode, ChatResponseStyle } from "@/types";
 
 export const runtime = "nodejs";
 
@@ -15,6 +16,8 @@ const maxBackfillChunks = 50;
 interface ChatRequestBody {
   message?: unknown;
   sessionId?: unknown;
+  mode?: unknown;
+  responseStyle?: unknown;
 }
 
 interface MatchChunkRow {
@@ -36,6 +39,17 @@ interface DbChatSession {
   id: string;
   title: string | null;
   created_at: string;
+}
+
+const chatModes: ChatMode[] = ["ask_documents", "job_application", "interview_coach", "kiss"];
+const chatResponseStyles: ChatResponseStyle[] = ["direct", "kiss", "detailed", "natural_proposal", "interview_answer"];
+
+function isChatMode(value: unknown): value is ChatMode {
+  return typeof value === "string" && chatModes.includes(value as ChatMode);
+}
+
+function isChatResponseStyle(value: unknown): value is ChatResponseStyle {
+  return typeof value === "string" && chatResponseStyles.includes(value as ChatResponseStyle);
 }
 
 function safeErrorMessage(error: unknown) {
@@ -191,9 +205,19 @@ export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as ChatRequestBody | null;
   const message = typeof body?.message === "string" ? body.message.trim() : "";
   const requestedSessionId = typeof body?.sessionId === "string" && body.sessionId.trim() ? body.sessionId.trim() : null;
+  const mode = body?.mode === undefined ? "ask_documents" : body.mode;
+  const responseStyle = body?.responseStyle === undefined ? "kiss" : body.responseStyle;
 
   if (!message) {
     return NextResponse.json({ error: "Message is required." }, { status: 400 });
+  }
+
+  if (!isChatMode(mode)) {
+    return NextResponse.json({ error: "Invalid chat mode." }, { status: 400 });
+  }
+
+  if (!isChatResponseStyle(responseStyle)) {
+    return NextResponse.json({ error: "Invalid response style." }, { status: 400 });
   }
 
   if (message.length > maxQuestionLength) {
@@ -281,7 +305,7 @@ export async function POST(request: Request) {
       })
       .join("\n\n---\n\n");
 
-    const answer = await generateAnswerFromContext({ apiKey, question: message, context });
+    const answer = await generateAnswerFromContext({ apiKey, question: message, context, mode, responseStyle });
     await saveChatMessage({ content: answer, role: "assistant", sessionId, sources, supabase });
 
     return NextResponse.json({ answer, sources, sessionId });

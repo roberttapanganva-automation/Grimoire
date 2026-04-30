@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { logSupabaseError, safeApiError } from "@/lib/api-errors";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { mergeTags, suggestTagsFromText } from "@/lib/server/autoTag";
 import { itemPayloadToRow, mapDbItemToItem, validateItemPayload, type DbItemRow } from "@/lib/items";
 
 export async function GET() {
@@ -43,10 +44,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 });
   }
 
+  const payload = validation.data;
+
+  if (payload.tags.length === 0) {
+    const suggestedTags = await suggestTagsFromText({
+      title: payload.title,
+      content: [payload.content, payload.command, payload.url, payload.type].filter(Boolean).join("\n"),
+      maxTags: 5,
+    });
+    payload.tags = mergeTags([], suggestedTags);
+  }
+
   // user_id is always derived from the authenticated session, never from client input.
   const { data, error } = await supabase
     .from("items")
-    .insert(itemPayloadToRow(validation.data, user.id))
+    .insert(itemPayloadToRow(payload, user.id))
     .select("*")
     .single();
 

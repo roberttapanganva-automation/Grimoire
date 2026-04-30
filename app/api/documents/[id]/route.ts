@@ -73,6 +73,7 @@ export async function GET(_request: Request, { params }: DocumentRouteContext) {
       status: (document as DbDocumentRow).status ?? "ready",
       errorMessage: (document as DbDocumentRow).error_message ?? null,
       chunkCount: (document as DbDocumentRow).chunk_count ?? 0,
+      tags: (document as DbDocumentRow).tags ?? [],
       createdAt: (document as DbDocumentRow).created_at,
     },
     chunks: ((chunks ?? []) as DbDocumentChunkRow[]).map(mapDbDocumentChunkToChunk),

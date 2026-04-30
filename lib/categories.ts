@@ -1,5 +1,21 @@
 import type { Category } from "@/types";
 
+const hexColorPattern = /^#[0-9A-Fa-f]{6}$/;
+const allowedCategoryIcons = new Set([
+  "folder",
+  "book",
+  "terminal",
+  "link",
+  "brain",
+  "file-text",
+  "message-square",
+  "briefcase",
+  "code",
+  "database",
+  "bot",
+  "settings",
+]);
+
 export interface DbCategoryRow {
   id: string;
   user_id: string;
@@ -43,11 +59,17 @@ export function validateCategoryPayload(payload: unknown): { data: CategoryPaylo
     return { error: "Category name is required." };
   }
 
+  const color = typeof value.color === "string" && value.color.trim().length > 0 ? value.color.trim() : "#F59E0B";
+
+  if (!hexColorPattern.test(color)) {
+    return { error: "Use a valid hex color like #F59E0B." };
+  }
+
   return {
     data: {
       name: value.name.trim(),
-      color: typeof value.color === "string" && value.color.trim().length > 0 ? value.color.trim() : "#F59E0B",
-      icon: typeof value.icon === "string" && value.icon.trim().length > 0 ? value.icon.trim() : "folder",
+      color: color.toUpperCase(),
+      icon: typeof value.icon === "string" && allowedCategoryIcons.has(value.icon.trim()) ? value.icon.trim() : "folder",
       parentId: typeof value.parentId === "string" && value.parentId.trim().length > 0 ? value.parentId.trim() : null,
       sortOrder: typeof value.sortOrder === "number" && Number.isFinite(value.sortOrder) ? value.sortOrder : 0,
     },

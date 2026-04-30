@@ -9,7 +9,7 @@ import type { Document as BrainDocument, DocumentChunk, DocumentStatus } from "@
 
 type UploadState = "idle" | "selected" | "uploading" | "success" | "error";
 type MessageTone = "neutral" | "success" | "error";
-type BrainDocumentDetail = Pick<BrainDocument, "id" | "title" | "fileName" | "fileType" | "status" | "errorMessage" | "chunkCount" | "createdAt">;
+type BrainDocumentDetail = Pick<BrainDocument, "id" | "title" | "fileName" | "fileType" | "status" | "errorMessage" | "chunkCount" | "tags" | "createdAt">;
 
 function formatBytes(bytes: number) {
   if (bytes <= 0) {
@@ -55,6 +55,22 @@ function statusClassName(status: DocumentStatus) {
   }
 
   return "border-[#10B981]/40 bg-[#10B981]/10 text-[#86EFAC]";
+}
+
+function DocumentTags({ tags }: { tags: string[] }) {
+  if (!tags.length) {
+    return null;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1">
+      {tags.slice(0, 5).map((tag) => (
+        <span key={tag} className="inline-flex max-w-full rounded-[4px] border border-[#2A2D3E] bg-[#0F1117] px-2 py-0.5 text-xs text-[#94A3B8]">
+          <span className="truncate">{tag}</span>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function BrainPage() {
@@ -355,7 +371,7 @@ export default function BrainPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1117] font-sans text-[#E2E8F0]">
+    <div className="min-h-screen overflow-x-hidden bg-[#0F1117] font-sans text-[#E2E8F0]">
       <Sidebar />
 
       <div className="md:pl-[240px]">
@@ -443,10 +459,7 @@ export default function BrainPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <p className="text-xs text-[#64748B]">
-                  Upload state: <span className="font-mono text-[#E2E8F0]">{uploadState}</span>
-                </p>
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
                 <button
                   type="submit"
                   disabled={!selectedFile || uploadState === "uploading" || isBrainSetupRequired}
@@ -506,6 +519,7 @@ export default function BrainPage() {
                           <span className="min-w-0">
                             <span className="block truncate font-medium text-[#E2E8F0]">{document.title}</span>
                             <span className="mt-1 block truncate font-mono text-xs text-[#64748B]">{document.fileName}</span>
+                            <DocumentTags tags={document.tags} />
                           </span>
                         </span>
                         <span className="self-center font-mono text-xs uppercase text-[#E2E8F0]">{document.fileType}</span>
@@ -636,6 +650,7 @@ function ChunkPreviewPanel({
             </button>
           </div>
           <h2 className="break-words text-xl font-semibold leading-7 text-[#E2E8F0]">{document.title}</h2>
+          <DocumentTags tags={document.tags} />
           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-[#64748B]">
             <div className="col-span-2">
               <dt>File</dt>

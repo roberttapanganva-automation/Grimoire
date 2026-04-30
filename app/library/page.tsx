@@ -308,7 +308,7 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1117] font-sans text-[#E2E8F0]">
+    <div className="min-h-screen overflow-x-hidden bg-[#0F1117] font-sans text-[#E2E8F0]">
       <Sidebar
         activeType={selectedType}
         onTypeChange={setSelectedType}

@@ -1,9 +1,9 @@
 "use client";
 
 import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, Bot, Loader2, MessageSquare, Plus, Send, Trash2, UserRound } from "lucide-react";
+import { AlertCircle, Bot, Check, Copy, Loader2, MessageSquare, Plus, Send, Trash2, UserRound } from "lucide-react";
 import { Sidebar } from "@/components/layout/Sidebar";
-import type { ChatApiResponse, ChatMessage, ChatSession, ChatSessionDetail, ChatSource } from "@/types";
+import type { ChatApiResponse, ChatMessage, ChatMode, ChatResponseStyle, ChatSession, ChatSessionDetail, ChatSource } from "@/types";
 
 type UiMessage = ChatMessage & {
   id: string;
@@ -17,6 +17,21 @@ const welcomeMessage: UiMessage = {
   content: "Ask a question about your processed TXT documents. I will answer only from retrieved chunks and show the sources I used.",
   sources: [],
 };
+
+const chatModes: Array<{ value: ChatMode; label: string }> = [
+  { value: "ask_documents", label: "Ask My Documents" },
+  { value: "job_application", label: "Job Application Writer" },
+  { value: "interview_coach", label: "Interview Answer Coach" },
+  { value: "kiss", label: "KISS Mode" },
+];
+
+const responseStyles: Array<{ value: ChatResponseStyle; label: string }> = [
+  { value: "direct", label: "Direct" },
+  { value: "kiss", label: "KISS" },
+  { value: "detailed", label: "Detailed" },
+  { value: "natural_proposal", label: "Natural Proposal" },
+  { value: "interview_answer", label: "Interview Answer" },
+];
 
 function createMessage(role: UiMessage["role"], content: string): UiMessage {
   return {
@@ -47,12 +62,17 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<UiMessage[]>([welcomeMessage]);
   const [input, setInput] = useState("");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<ChatMode>("ask_documents");
+  const [responseStyle, setResponseStyle] = useState<ChatResponseStyle>("kiss");
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isLoadingConversation, setIsLoadingConversation] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const messageScrollRef = useRef<HTMLDivElement | null>(null);
+  const shouldScrollInstantlyRef = useRef(false);
 
   const activeSession = useMemo(
     () => sessions.find((session) => session.id === activeSessionId) ?? null,
@@ -97,9 +117,31 @@ export default function ChatPage() {
     void loadSessions();
   }, [loadSessions]);
 
+  const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    window.requestAnimationFrame(() => {
+      const scrollContainer = messageScrollRef.current;
+
+      if (!scrollContainer) {
+        return;
+      }
+
+      scrollContainer.scrollTo({
+        top: scrollContainer.scrollHeight,
+        behavior,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    const behavior = shouldScrollInstantlyRef.current ? "auto" : "smooth";
+    shouldScrollInstantlyRef.current = false;
+    scrollMessagesToBottom(behavior);
+  }, [messages, isLoadingConversation, scrollMessagesToBottom]);
+
   async function loadConversation(sessionId: string) {
     setActiveSessionId(sessionId);
     setIsLoadingConversation(true);
+    shouldScrollInstantlyRef.current = true;
     setError(null);
 
     try {
@@ -126,11 +168,22 @@ export default function ChatPage() {
   }
 
   function startNewChat() {
+    shouldScrollInstantlyRef.current = true;
     setMessages([welcomeMessage]);
     setInput("");
     setActiveSessionId(null);
     setError(null);
     textareaRef.current?.focus();
+  }
+
+  async function copyAssistantMessage(message: UiMessage) {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopiedMessageId(message.id);
+      window.setTimeout(() => setCopiedMessageId((current) => (current === message.id ? null : current)), 1400);
+    } catch {
+      setError("Could not copy the assistant response.");
+    }
   }
 
   async function deleteSession(sessionId: string, event: MouseEvent<HTMLButtonElement>) {
@@ -190,6 +243,8 @@ export default function ChatPage() {
         body: JSON.stringify({
           message: question,
           sessionId: activeSessionId,
+          mode: chatMode,
+          responseStyle,
         }),
       });
 
@@ -258,23 +313,23 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1117] text-[#E2E8F0]">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#0F1117] text-[#E2E8F0]">
       <Sidebar />
 
-      <main className="min-h-screen md:pl-[240px]">
-        <div className="grid min-h-screen lg:grid-cols-[280px_minmax(0,1fr)]">
-          <aside className="hidden border-r border-[#2A2D3E] bg-[#11141C] p-4 lg:block">
+      <main className="min-h-0 flex-1 overflow-hidden md:pl-[240px]">
+        <div className="grid h-full min-h-0 lg:grid-cols-[280px_minmax(0,1fr)]">
+          <aside className="hidden h-full min-h-0 shrink-0 flex-col overflow-hidden border-r border-[#2A2D3E] bg-[#11141C] p-4 lg:flex">
             <button
               type="button"
               onClick={startNewChat}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
+              className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-[4px] bg-amber-400 px-3 py-2 text-sm font-semibold text-[#0F1117] transition-colors duration-150 hover:bg-[#FBBF24] focus:outline-none focus:ring-1 focus:ring-amber-400"
             >
               <Plus className="size-4" aria-hidden="true" />
               New Chat
             </button>
 
-            <div className="mt-4">
-              <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col">
+              <div className="mb-3 flex shrink-0 items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#64748B]">
                 <MessageSquare className="size-4" aria-hidden="true" />
                 Chat History
               </div>
@@ -289,7 +344,7 @@ export default function ChatPage() {
                   No saved chats yet.
                 </div>
               ) : (
-                <div className="grid gap-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overflow-x-hidden pr-1">
                   {sessions.map((session) => {
                     const isActive = session.id === activeSessionId;
                     const isDeleting = deletingSessionId === session.id;
@@ -297,18 +352,18 @@ export default function ChatPage() {
                     return (
                       <div
                         key={session.id}
-                        className={`group flex items-start justify-between gap-2 rounded-[6px] border p-3 transition-colors duration-150 ${
-                          isActive ? "border-[#F59E0B] bg-[#21243A]" : "border-[#2A2D3E] bg-[#1A1D27] hover:bg-[#21243A]"
+                        className={`group flex min-h-[76px] max-h-[104px] w-full flex-none items-start justify-between gap-2 overflow-hidden rounded-[6px] border border-l-4 p-3 transition-colors duration-150 ${
+                          isActive ? "border-[#F59E0B] bg-[#21243A]" : "border-[#2A2D3E] border-l-[#2A2D3E] bg-[#1A1D27] hover:bg-[#21243A]"
                         }`}
                       >
                         <button
                           type="button"
                           onClick={() => void loadConversation(session.id)}
-                          className="min-w-0 flex-1 text-left focus:outline-none focus:ring-1 focus:ring-amber-400"
+                          className="min-w-0 flex-1 overflow-hidden text-left focus:outline-none focus:ring-1 focus:ring-amber-400"
                         >
-                            <p className="truncate text-sm font-medium text-[#E2E8F0]">{previewTitle(session)}</p>
+                            <p className="line-clamp-1 break-words text-sm font-medium text-[#E2E8F0]">{previewTitle(session)}</p>
                             {session.latestMessagePreview ? (
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#64748B]">{session.latestMessagePreview}</p>
+                              <p className="mt-1 line-clamp-2 break-words text-xs leading-5 text-[#64748B]">{session.latestMessagePreview}</p>
                             ) : null}
                         </button>
                         <button
@@ -327,8 +382,8 @@ export default function ChatPage() {
             </div>
           </aside>
 
-          <section className="flex min-h-screen flex-col">
-            <header className="border-b border-[#2A2D3E] bg-[#1A1D27] px-4 py-4 sm:px-6">
+          <section className="flex h-full min-h-0 flex-col overflow-hidden">
+            <header className="shrink-0 border-b border-[#2A2D3E] bg-[#1A1D27] px-4 py-4 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h1 className="text-lg font-semibold text-[#E2E8F0]">RAG Chat</h1>
@@ -347,7 +402,7 @@ export default function ChatPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+            <div ref={messageScrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-6">
               <div className="mx-auto flex max-w-4xl flex-col gap-4">
                 {error ? (
                   <div className="flex items-start gap-3 rounded-[6px] border border-red-500/60 bg-red-500/10 p-3 text-sm text-red-100">
@@ -378,6 +433,18 @@ export default function ChatPage() {
                               : "border-[#2A2D3E] bg-[#1A1D27] text-[#E2E8F0]"
                           }`}
                         >
+                          {message.role === "assistant" && !message.isLoading ? (
+                            <div className="mb-3 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => void copyAssistantMessage(message)}
+                                className="inline-flex items-center gap-1 rounded-[4px] border border-[#2A2D3E] px-2 py-1 text-xs font-medium text-[#64748B] transition-colors duration-150 hover:bg-[#21243A] hover:text-[#E2E8F0] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                              >
+                                {copiedMessageId === message.id ? <Check className="size-3.5" aria-hidden="true" /> : <Copy className="size-3.5" aria-hidden="true" />}
+                                {copiedMessageId === message.id ? "Copied" : "Copy"}
+                              </button>
+                            </div>
+                          ) : null}
                           <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
                         </div>
 
@@ -409,8 +476,43 @@ export default function ChatPage() {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="border-t border-[#2A2D3E] bg-[#1A1D27] p-4 sm:p-6">
-              <div className="mx-auto flex max-w-4xl items-end gap-3">
+            <form onSubmit={handleSubmit} className="shrink-0 border-t border-[#2A2D3E] bg-[#1A1D27] p-4 sm:p-6">
+              <div className="mx-auto grid max-w-4xl gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="grid gap-1 text-xs font-medium text-[#64748B]">
+                    Mode
+                    <select
+                      value={chatMode}
+                      onChange={(event) => setChatMode(event.target.value as ChatMode)}
+                      className="min-h-9 rounded-[4px] border border-[#2A2D3E] bg-[#0F1117] px-2 text-sm text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      disabled={isSending}
+                    >
+                      {chatModes.map((mode) => (
+                        <option key={mode.value} value={mode.value}>
+                          {mode.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="grid gap-1 text-xs font-medium text-[#64748B]">
+                    Response style
+                    <select
+                      value={responseStyle}
+                      onChange={(event) => setResponseStyle(event.target.value as ChatResponseStyle)}
+                      className="min-h-9 rounded-[4px] border border-[#2A2D3E] bg-[#0F1117] px-2 text-sm text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400"
+                      disabled={isSending}
+                    >
+                      {responseStyles.map((style) => (
+                        <option key={style.value} value={style.value}>
+                          {style.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                <div className="flex items-end gap-3">
                 <label className="sr-only" htmlFor="chat-message">
                   Ask about your documents
                 </label>
@@ -433,6 +535,7 @@ export default function ChatPage() {
                   {isSending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Send className="size-4" aria-hidden="true" />}
                   Send
                 </button>
+                </div>
               </div>
             </form>
           </section>
