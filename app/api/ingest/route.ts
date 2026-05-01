@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { logSupabaseError } from "@/lib/api-errors";
 import { chunkText } from "@/lib/chunker";
 import { brainSchemaMissingMessage, isDocumentFileType, isMissingBrainSchemaError, mapDbDocumentToDocument, type DbDocumentRow } from "@/lib/documents";
+import { mergeTags, suggestTagsFromText } from "@/lib/server/autoTag";
 import { extractDocumentText } from "@/lib/server/extractDocumentText";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -226,10 +227,18 @@ export async function POST(request: Request) {
     }
 
     console.log("[ingest] chunks inserted", { documentId, count: insertedChunks.length });
+    const suggestedTags = await suggestTagsFromText({
+      title: documentRow.title,
+      content: text,
+      type: documentRow.file_type,
+      existingTags: documentRow.tags ?? [],
+      maxTags: 7,
+    });
+    const documentTags = mergeTags(documentRow.tags ?? [], suggestedTags);
 
     const { data: updatedDocument, error: readyError } = await supabase
       .from("documents")
-      .update({ status: "ready", chunk_count: chunks.length, error_message: null })
+      .update({ status: "ready", chunk_count: chunks.length, error_message: null, tags: documentTags })
       .eq("id", documentId)
       .eq("user_id", userId)
       .select("*")

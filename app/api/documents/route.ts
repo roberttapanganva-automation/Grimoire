@@ -82,7 +82,7 @@ export async function POST(request: Request) {
   const storagePath = `${user.id}/${documentId}/${safeFileName}`;
 
   const { error: uploadError } = await supabase.storage.from("documents").upload(storagePath, file, {
-    contentType: file.type || "application/octet-stream",
+    contentType: validation.contentType,
     upsert: false,
   });
 

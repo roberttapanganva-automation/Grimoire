@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { Loader2, Sparkles, X } from "lucide-react";
 import { ItemCard } from "@/components/items/ItemCard";
 import { ItemDetail } from "@/components/items/ItemDetail";
 import { ItemRow } from "@/components/items/ItemRow";
@@ -308,7 +308,7 @@ export default function LibraryPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0F1117] font-sans text-[#E2E8F0]">
+    <div className="min-h-screen overflow-x-hidden bg-[#0F1117] font-sans text-[#E2E8F0]">
       <Sidebar
         activeType={selectedType}
         onTypeChange={setSelectedType}
@@ -475,12 +475,48 @@ function ItemEditorModal({
 }) {
   const [values, setValues] = useState<ItemFormValues>(() => itemToFormValues(item));
   const [isSaving, setIsSaving] = useState(false);
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [tagSuggestionError, setTagSuggestionError] = useState<string | null>(null);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsSaving(true);
     await onSave(values);
     setIsSaving(false);
+  }
+
+  async function suggestTags() {
+    setIsSuggestingTags(true);
+    setTagSuggestionError(null);
+
+    const response = await fetch("/api/ai/tags", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: values.type,
+        title: values.title,
+        content: [values.content, values.command, values.url].filter(Boolean).join("\n"),
+      }),
+    });
+
+    setIsSuggestingTags(false);
+
+    if (!response.ok) {
+      setTagSuggestionError("Could not suggest tags.");
+      return;
+    }
+
+    const result = (await response.json().catch(() => null)) as { tags?: string[]; error?: string } | null;
+    const suggestedTags = result?.tags ?? [];
+
+    if (suggestedTags.length === 0) {
+      setTagSuggestionError(result?.error ?? "No tags were generated.");
+      return;
+    }
+
+    setValues((current) => ({ ...current, tags: suggestedTags.join(", ") }));
   }
 
   return (
@@ -566,13 +602,25 @@ function ItemEditorModal({
           </label>
 
           <label className="grid gap-2 text-sm font-medium text-[#E2E8F0]">
-            Tags
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              Tags
+              <button
+                type="button"
+                onClick={() => void suggestTags()}
+                disabled={isSuggestingTags || (!values.title.trim() && !values.content.trim() && !values.command.trim() && !values.url.trim())}
+                className="inline-flex items-center justify-center gap-1 rounded-[4px] border border-[#2A2D3E] px-2 py-1 text-xs font-medium text-[#E2E8F0] transition-colors duration-150 hover:bg-[#21243A] focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSuggestingTags ? <Loader2 className="size-3.5 animate-spin" aria-hidden="true" /> : <Sparkles className="size-3.5 text-amber-400" aria-hidden="true" />}
+                Suggest tags
+              </button>
+            </span>
             <input
               value={values.tags}
               onChange={(event) => setValues((current) => ({ ...current, tags: event.target.value }))}
               className="rounded-[4px] border border-[#2A2D3E] bg-[#0F1117] px-3 py-2 text-sm text-[#E2E8F0] transition-colors duration-150 placeholder:text-[#374151] focus:border-[#F59E0B] focus:outline-none focus:ring-1 focus:ring-amber-400"
               placeholder="prompt, planning, reference"
             />
+            {tagSuggestionError ? <span className="text-xs font-normal text-[#FCA5A5]">{tagSuggestionError}</span> : null}
           </label>
 
           <label className="flex items-center gap-2 text-sm font-medium text-[#E2E8F0]">

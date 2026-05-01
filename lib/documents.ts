@@ -1,7 +1,7 @@
 import type { Document, DocumentFileType, DocumentStatus } from "@/types";
 
 export const allowedDocumentFileTypes: DocumentFileType[] = ["pdf", "txt", "md"];
-export const allowedDocumentFileExtensions = ["pdf", "txt", "md", "markdown"] as const;
+export const allowedDocumentUploadExtensions = ["txt"] as const;
 export const maxDocumentFileSize = 10 * 1024 * 1024;
 export const brainSchemaMissingMessage =
   "Brain database tables are missing. Run supabase/brain_schema.sql in Supabase SQL Editor, then refresh.";
@@ -42,19 +42,43 @@ export function normalizeDocumentFileType(fileName?: string | null, mimeType?: s
   const extension = getFileExtension(fileName ?? "");
   const type = mimeType?.trim().toLowerCase() ?? "";
 
-  if (extension === "pdf" || type === "application/pdf") {
+  if (extension === "pdf") {
     return "pdf";
   }
 
-  if (extension === "md" || extension === "markdown" || type === "text/markdown") {
+  if (extension === "md" || extension === "markdown") {
     return "md";
   }
 
-  if (extension === "txt" || type === "text/plain") {
+  if (extension === "txt") {
+    return "txt";
+  }
+
+  if (type === "application/pdf") {
+    return "pdf";
+  }
+
+  if (type === "text/markdown") {
+    return "md";
+  }
+
+  if (type === "text/plain") {
     return "txt";
   }
 
   return null;
+}
+
+export function getDocumentStorageContentType(fileType: DocumentFileType) {
+  if (fileType === "pdf") {
+    return "application/pdf";
+  }
+
+  if (fileType === "md") {
+    return "text/markdown";
+  }
+
+  return "text/plain";
 }
 
 export function mapDbDocumentToDocument(row: DbDocumentRow): Document {
@@ -113,12 +137,28 @@ export function getSafeFileName(fileName: string) {
   return safeName || "document";
 }
 
-export function validateDocumentFile(file: File): { fileType: DocumentFileType } | { error: string } {
+export function validateDocumentFile(file: File): { fileType: DocumentFileType; contentType: string } | { error: string } {
   const extension = getFileExtension(file.name);
   const fileType = normalizeDocumentFileType(file.name, file.type);
 
-  if (!fileType || (file.type === "application/octet-stream" && !allowedDocumentFileExtensions.includes(extension as (typeof allowedDocumentFileExtensions)[number]))) {
-    return { error: "Unsupported file type. Upload a PDF, TXT, or MD file." };
+  if (fileType === "pdf" || extension === "pdf") {
+    return { error: "PDF upload is temporarily disabled for the MVP. Please convert the file to TXT for now." };
+  }
+
+  if (fileType === "md" || extension === "md" || extension === "markdown") {
+    return { error: "Markdown upload is temporarily disabled for the MVP. Please save the file as TXT for now." };
+  }
+
+  if (extension && extension !== "txt") {
+    return { error: "Unsupported file type. Please upload a TXT file." };
+  }
+
+  if (!fileType || fileType !== "txt") {
+    return { error: "Unsupported file type. Please upload a TXT file." };
+  }
+
+  if (file.type === "application/octet-stream" && !allowedDocumentUploadExtensions.includes(extension as (typeof allowedDocumentUploadExtensions)[number])) {
+    return { error: "Unsupported file type. Please upload a TXT file." };
   }
 
   if (file.size > maxDocumentFileSize) {
@@ -129,7 +169,7 @@ export function validateDocumentFile(file: File): { fileType: DocumentFileType }
     return { error: "File is empty." };
   }
 
-  return { fileType };
+  return { fileType: "txt", contentType: getDocumentStorageContentType("txt") };
 }
 
 export function isMissingBrainSchemaError(error: { code?: string; message?: string; details?: string } | null | undefined) {

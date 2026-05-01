@@ -1,4 +1,5 @@
 import type { Item, ItemType } from "@/types";
+import { normalizeTags } from "@/lib/tagging";
 
 export const itemTypes: ItemType[] = ["prompt", "note", "link", "command", "snippet"];
 
@@ -71,9 +72,7 @@ export function validateItemPayload(payload: unknown): { data: ItemPayload } | {
     return { error: "Title is required." };
   }
 
-  const tags = Array.isArray(value.tags)
-    ? value.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()).filter(Boolean)
-    : [];
+  const tags = normalizeTags(value.tags);
   const variables = Array.isArray(value.variables) ? value.variables : [];
 
   const content = typeof value.content === "string" && value.content.trim().length > 0 ? value.content : null;
