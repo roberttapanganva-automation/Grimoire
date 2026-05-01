@@ -230,8 +230,9 @@ export async function POST(request: Request) {
     const suggestedTags = await suggestTagsFromText({
       title: documentRow.title,
       content: text,
+      type: documentRow.file_type,
       existingTags: documentRow.tags ?? [],
-      maxTags: 5,
+      maxTags: 7,
     });
     const documentTags = mergeTags(documentRow.tags ?? [], suggestedTags);
 

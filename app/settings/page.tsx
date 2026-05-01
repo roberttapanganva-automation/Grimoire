@@ -863,6 +863,21 @@ function ImportExportSection({
     { type: "documents", label: "Export Documents + Chunks", description: "Document metadata and chunk text without embeddings." },
     { type: "library", label: "Export Library Items", description: "Categories and library items if those tables are available." },
   ];
+  const itemWebhookExample = {
+    target: "item",
+    type: "note",
+    title: "Matrix movie note",
+    content: "The Matrix is a 1999 sci-fi movie about simulated reality and choice.",
+    tags: ["movie", "sci-fi", "film"],
+    categoryName: "Movies",
+  };
+  const documentWebhookExample = {
+    target: "document",
+    title: "Robert Job Application Context",
+    content: "KISS METHOD: Keep answers short, simple, specific, and practical.",
+    tags: ["job-application", "kiss-method", "automation"],
+    categoryName: "Job Applications",
+  };
 
   return (
     <div className="rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-5">
@@ -895,6 +910,25 @@ function ImportExportSection({
               </button>
             );
           })}
+        </div>
+      </section>
+
+      <section className="mt-5 rounded-[6px] border border-[#2A2D3E] bg-[#0F1117] p-4">
+        <h3 className="text-sm font-semibold text-[#E2E8F0]">n8n Ingestion</h3>
+        <p className="mt-1 text-sm text-[#64748B]">Send server-to-server notes, prompts, links, commands, snippets, or raw TXT documents into Grimoire.</p>
+        <div className="mt-4 grid gap-3">
+          <div className="rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">Endpoint</p>
+            <code className="mt-2 block break-all font-mono text-sm text-[#FBBF24]">/api/ingest/webhook</code>
+          </div>
+          <div className="grid gap-3 lg:grid-cols-2">
+            <pre className="overflow-x-auto rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-3 text-xs leading-5 text-[#CBD5E1]">
+              <code>{JSON.stringify(itemWebhookExample, null, 2)}</code>
+            </pre>
+            <pre className="overflow-x-auto rounded-[6px] border border-[#2A2D3E] bg-[#1A1D27] p-3 text-xs leading-5 text-[#CBD5E1]">
+              <code>{JSON.stringify(documentWebhookExample, null, 2)}</code>
+            </pre>
+          </div>
         </div>
       </section>
 

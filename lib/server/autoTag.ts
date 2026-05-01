@@ -1,9 +1,14 @@
 import "server-only";
 import { getGeminiApiKey } from "@/lib/server/gemini";
+import { normalizeTags } from "@/lib/tagging";
 
 const geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
 const defaultFlashModel = "gemini-2.5-flash";
-const genericTags = new Set(["document", "file", "note", "content", "text"]);
+const genericTags = new Set(["document", "file", "note", "content", "text", "general", "misc", "information", "data"]);
+
+export function getAutoTagModel() {
+  return process.env.GEMINI_FLASH_MODEL?.trim() || defaultFlashModel;
+}
 
 function modelPath(model: string) {
   const trimmed = model.trim();
@@ -11,32 +16,85 @@ function modelPath(model: string) {
 }
 
 function extractJsonArray(text: string) {
-  const trimmed = text.trim();
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
   const start = trimmed.indexOf("[");
-  const end = trimmed.lastIndexOf("]");
 
-  if (start === -1 || end === -1 || end <= start) {
+  if (start === -1) {
     return null;
   }
 
-  return trimmed.slice(start, end + 1);
+  let depth = 0;
+  let inString = false;
+  let isEscaped = false;
+
+  for (let index = start; index < trimmed.length; index += 1) {
+    const character = trimmed[index];
+
+    if (isEscaped) {
+      isEscaped = false;
+      continue;
+    }
+
+    if (character === "\\") {
+      isEscaped = true;
+      continue;
+    }
+
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) {
+      continue;
+    }
+
+    if (character === "[") {
+      depth += 1;
+    }
+
+    if (character === "]") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return trimmed.slice(start, index + 1);
+      }
+    }
+  }
+
+  return null;
 }
 
-export function sanitizeTags(tags: string[], maxTags = 5) {
+function parseTags(text: string) {
+  const jsonArrayText = extractJsonArray(text);
+
+  if (!jsonArrayText) {
+    return [];
+  }
+
+  const parsed = JSON.parse(jsonArrayText) as unknown;
+
+  if (Array.isArray(parsed)) {
+    return parsed;
+  }
+
+  if (parsed && typeof parsed === "object" && Array.isArray((parsed as { tags?: unknown }).tags)) {
+    return (parsed as { tags: unknown[] }).tags;
+  }
+
+  return [];
+}
+
+export function sanitizeTags(tags: unknown, maxTags = 7) {
   const seen = new Set<string>();
   const limit = Math.max(1, Math.min(maxTags, 10));
 
-  return tags
-    .map((tag) =>
-      tag
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-        .replace(/-+/g, "-")
-        .replace(/^-|-$/g, ""),
-    )
-    .filter((tag) => tag.length > 1 && !genericTags.has(tag))
+  return normalizeTags(tags)
+    .filter((tag) => tag.length > 1 && tag.length <= 32 && !genericTags.has(tag))
     .filter((tag) => {
       if (seen.has(tag)) {
         return false;
@@ -55,30 +113,45 @@ export function mergeTags(existingTags: string[] = [], suggestedTags: string[] =
 export async function suggestTagsFromText({
   title,
   content,
+  type,
   existingTags = [],
-  maxTags = 5,
+  maxTags = 7,
+  diagnosticPrefix,
 }: {
   title: string;
   content: string;
+  type?: string;
   existingTags?: string[];
   maxTags?: number;
+  diagnosticPrefix?: string;
 }) {
   const apiKey = getGeminiApiKey();
   const cleanContent = content.trim();
 
   if (!apiKey || (!title.trim() && !cleanContent)) {
+    if (diagnosticPrefix) {
+      console.info(`${diagnosticPrefix} raw generated tags`, []);
+    }
     return [];
   }
 
   try {
-    const model = process.env.GEMINI_FLASH_MODEL?.trim() || defaultFlashModel;
+    const model = getAutoTagModel();
     const prompt = [
       "Return only a JSON array of strings.",
-      `Generate 3 to ${Math.max(3, Math.min(maxTags, 6))} practical tags for this Grimoire item.`,
-      "Rules: lowercase, short, useful, no duplicates, use hyphens instead of spaces.",
-      "Avoid generic tags: document, file, note, content, text.",
+      `Generate 3 to ${Math.max(3, Math.min(maxTags, 7))} smart practical tags for this Grimoire item.`,
+      "Include: one content type tag, topic tags, and obvious use-case tags.",
+      "Content type examples: movie, quote, book, article, job-application, resume, cover-letter, proposal, interview, prompt, sop, checklist, tutorial, code, command, meeting-note, idea, research, personal-note, automation, crm, webhook, finance, health, travel, learning, client-note.",
+      "Rules: lowercase, kebab-case, no spaces, no duplicates, max 32 characters each.",
+      "Avoid generic tags: document, file, note, text, content, general, misc, information, data.",
+      'Examples: "The Matrix is a 1999 sci-fi movie..." => ["movie","sci-fi","film","summary"].',
+      '"Keep it simple, specific, and practical." => ["quote","kiss-method","writing","clarity"].',
+      '"Upwork proposal for n8n automation role..." => ["job-application","proposal","upwork","n8n","automation"].',
+      '"curl -X POST https://api..." => ["command","api","curl","webhook"].',
+      '"Steps to onboard a new client..." => ["sop","client-onboarding","checklist","operations"].',
       existingTags.length ? `Existing tags to avoid duplicating: ${existingTags.join(", ")}` : "",
       "",
+      `Item type: ${type?.trim() || "unknown"}`,
       `Title: ${title.trim() || "Untitled"}`,
       "Content:",
       cleanContent.slice(0, 3000),
@@ -124,22 +197,25 @@ export async function suggestTagsFromText({
       ?.map((part) => part.text ?? "")
       .join("")
       .trim();
-    const jsonText = text ? extractJsonArray(text) : null;
-
-    if (!jsonText) {
+    if (!text) {
       console.warn("[auto-tag] Gemini returned no JSON array");
       return [];
     }
 
-    const parsed = JSON.parse(jsonText) as unknown;
+    const rawTags = parseTags(text);
+    const tags = sanitizeTags(rawTags, maxTags);
 
-    if (!Array.isArray(parsed)) {
-      return [];
+    if (diagnosticPrefix) {
+      console.info(`${diagnosticPrefix} raw generated tags`, rawTags);
+      console.info(`${diagnosticPrefix} generated tags count`, tags.length);
     }
 
-    return sanitizeTags(parsed.filter((tag): tag is string => typeof tag === "string"), maxTags);
+    return tags;
   } catch (error) {
     console.warn("[auto-tag] skipped", error instanceof Error ? error.message : "unknown failure");
+    if (diagnosticPrefix) {
+      console.info(`${diagnosticPrefix} raw generated tags`, []);
+    }
     return [];
   }
 }

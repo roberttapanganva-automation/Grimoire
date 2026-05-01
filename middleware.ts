@@ -37,7 +37,9 @@ export async function middleware(request: NextRequest) {
   const isCategoryApi = pathname.startsWith("/api/categories");
   const isDocumentApi = pathname.startsWith("/api/documents");
   const isIngestApi = pathname.startsWith("/api/ingest");
+  const isIngestWebhookApi = pathname === "/api/ingest/webhook";
   const isChatApi = pathname.startsWith("/api/chat");
+  const isAiApi = pathname.startsWith("/api/ai");
   const isTagApi = pathname.startsWith("/api/tags");
   const isImportApi = pathname.startsWith("/api/import");
   const isExportApi = pathname.startsWith("/api/export");
@@ -46,7 +48,7 @@ export async function middleware(request: NextRequest) {
   const isLibrary = pathname === "/library" || pathname.startsWith("/library/");
   const isSettings = pathname === "/settings" || pathname.startsWith("/settings/");
 
-  if (!user && (isItemApi || isCategoryApi || isDocumentApi || isIngestApi || isChatApi || isTagApi || isImportApi || isExportApi)) {
+  if (!user && (isItemApi || isCategoryApi || isDocumentApi || (isIngestApi && !isIngestWebhookApi) || isChatApi || isAiApi || isTagApi || isImportApi || isExportApi)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

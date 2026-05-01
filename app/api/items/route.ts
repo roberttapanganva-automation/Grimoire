@@ -45,15 +45,29 @@ export async function POST(request: Request) {
   }
 
   const payload = validation.data;
+  const contentForTags = [payload.title, payload.content, payload.command, payload.url, payload.type].filter(Boolean).join("\n");
+  const shouldAutoTag = payload.tags.length === 0;
 
-  if (payload.tags.length === 0) {
+  console.info("[auto-tag:item] received item create");
+  console.info("[auto-tag:item] type", payload.type);
+  console.info("[auto-tag:item] title length", payload.title.length);
+  console.info("[auto-tag:item] content length", contentForTags.length);
+  console.info("[auto-tag:item] normalized user tags", payload.tags);
+  console.info("[auto-tag:item] should auto tag", shouldAutoTag);
+  console.info("[auto-tag:item] gemini key exists", Boolean(process.env.GEMINI_API_KEY?.trim()));
+
+  if (shouldAutoTag) {
     const suggestedTags = await suggestTagsFromText({
       title: payload.title,
-      content: [payload.content, payload.command, payload.url, payload.type].filter(Boolean).join("\n"),
-      maxTags: 5,
+      content: contentForTags,
+      type: payload.type,
+      maxTags: 7,
+      diagnosticPrefix: "[auto-tag:item]",
     });
     payload.tags = mergeTags([], suggestedTags);
   }
+
+  console.info("[auto-tag:item] final saved tags", payload.tags);
 
   // user_id is always derived from the authenticated session, never from client input.
   const { data, error } = await supabase
@@ -67,5 +81,8 @@ export async function POST(request: Request) {
     return NextResponse.json(safeApiError("Could not create item", error.message), { status: 500 });
   }
 
-  return NextResponse.json({ item: mapDbItemToItem(data as DbItemRow) }, { status: 201 });
+  const item = mapDbItemToItem(data as DbItemRow);
+  console.info("[auto-tag:item] saved item tags", item.tags);
+
+  return NextResponse.json({ item }, { status: 201 });
 }
